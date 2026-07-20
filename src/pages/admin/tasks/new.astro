@@ -1,0 +1,39 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import { adminUser } from '@/lib/demo-data';
+const user = Astro.locals.user ?? adminUser;
+---
+
+<AppLayout title="Buat tugas" heading="Buat tugas baru" description="Definisikan pekerjaan dan checklist; karyawan hanya memperbarui progres miliknya." role="admin" user={user} activePath="/admin/tasks/new" isDemo={Astro.locals.isDemo}>
+  <a slot="actions" class="button secondary" href="/admin/tasks">Batal</a>
+  <form class="task-form-grid">
+    <section class="panel task-form-main"><div class="panel-header"><div><h2>Informasi tugas</h2><p>Judul, detail, dan penanggung jawab.</p></div></div><div class="panel-body form-fields"><div class="field wide"><label for="title">Judul tugas</label><input class="input" id="title" minlength="3" required placeholder="Contoh: Persiapan materi presentasi minggu ke-30" /></div><div class="field wide"><label for="description">Deskripsi</label><textarea class="textarea tall" id="description" maxlength="5000" placeholder="Jelaskan hasil yang diharapkan dan batasan pekerjaan"></textarea></div><div class="field"><label for="assignee">Karyawan</label><select class="select" id="assignee" required><option value="">Pilih karyawan</option><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select></div><div class="field"><label for="priority">Prioritas</label><select class="select" id="priority"><option>Sedang</option><option>Tinggi</option><option>Mendesak</option><option>Rendah</option></select></div><div class="field"><label for="start">Tanggal mulai</label><input class="input" id="start" type="date" value="2026-07-20" /></div><div class="field"><label for="due">Deadline</label><input class="input" id="due" type="date" value="2026-07-27" /></div><div class="field"><label for="estimate">Estimasi jam</label><input class="input" id="estimate" type="number" min="0" step="0.5" placeholder="0" /></div></div></section>
+    <aside class="task-form-side"><section class="panel"><div class="panel-header"><div><h2>Checklist</h2><p>Tambahkan langkah yang dapat diverifikasi.</p></div></div><div class="panel-body checklist-editor" data-checklist><div><span>1</span><input class="input" placeholder="Item checklist" /><button type="button" aria-label="Hapus item">×</button></div><div><span>2</span><input class="input" placeholder="Item checklist" /><button type="button" aria-label="Hapus item">×</button></div><button class="button secondary" type="button" data-add-checklist>+ Tambah item</button></div></section><section class="panel publish-card"><div class="panel-body"><h2>Publikasikan tugas</h2><p>Tugas langsung terlihat oleh karyawan yang dipilih.</p><label class="checkbox-row"><input type="checkbox" checked /> Kirim sebagai tugas aktif</label><button class="button" type="submit">Simpan tugas</button><button class="button secondary" type="button">Simpan sebagai draft</button></div></section></aside>
+  </form>
+  <script>
+    const list = document.querySelector('[data-checklist]');
+    document.querySelector('[data-add-checklist]')?.addEventListener('click', () => {
+      if (!list) return;
+      const count = list.querySelectorAll(':scope > div').length + 1;
+      const row = document.createElement('div');
+      row.innerHTML = `<span>${count}</span><input class="input" placeholder="Item checklist" /><button type="button" aria-label="Hapus item">×</button>`;
+      list.insertBefore(row, list.lastElementChild);
+    });
+  </script>
+</AppLayout>
+
+<style>
+  .task-form-grid, .task-form-side { display: grid; gap: 1rem; align-content: start; }
+  .form-fields { display: grid; gap: 1rem; }
+  .tall { min-height: 150px; }
+  .checklist-editor { display: grid; gap: .65rem; }
+  .checklist-editor > div { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .55rem; }
+  .checklist-editor > div > span { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-strong); color: var(--muted); font-size: .68rem; font-weight: 700; }
+  .checklist-editor > div > button { width: 40px; height: 40px; border: 0; border-radius: 8px; background: transparent; color: var(--danger); cursor: pointer; }
+  .publish-card h2 { font-size: 1rem; }
+  .publish-card p { margin: .4rem 0 1rem; color: var(--muted); font-size: .76rem; }
+  .checkbox-row { display: flex; gap: .55rem; margin-bottom: 1rem; color: var(--ink-soft); font-size: .78rem; }
+  .publish-card .button { width: 100%; margin-top: .55rem; }
+  @media (min-width: 720px) { .form-fields { grid-template-columns: 1fr 1fr; } .wide { grid-column: 1 / -1; } }
+  @media (min-width: 1080px) { .task-form-grid { grid-template-columns: minmax(0, 1.4fr) minmax(310px, .6fr); } }
+</style>

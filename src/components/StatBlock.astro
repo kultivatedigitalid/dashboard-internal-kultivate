@@ -1,0 +1,26 @@
+---
+interface Props {
+  label: string;
+  value: string;
+  helper?: string;
+  trend?: string;
+  tone?: 'default' | 'warning' | 'success';
+}
+const { label, value, helper, trend, tone = 'default' } = Astro.props;
+---
+
+<article class:list={['stat', tone]}>
+  <div class="stat-top"><span>{label}</span>{trend && <strong>{trend}</strong>}</div>
+  <p>{value}</p>
+  {helper && <small>{helper}</small>}
+</article>
+
+<style>
+  .stat { min-height: 136px; padding: 1.15rem 1.2rem; display: flex; flex-direction: column; justify-content: space-between; }
+  .stat-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; color: var(--muted); font-size: .8rem; }
+  .stat-top strong { color: var(--success); font-size: .72rem; }
+  .stat p { margin-top: .9rem; color: var(--ink); font-size: 1.65rem; line-height: 1; font-weight: 760; letter-spacing: -.035em; font-variant-numeric: tabular-nums; }
+  .stat small { display: block; margin-top: .65rem; color: var(--muted); font-size: .75rem; }
+  .warning .stat-top strong { color: var(--warning); }
+  .success .stat-top strong { color: var(--success); }
+</style>

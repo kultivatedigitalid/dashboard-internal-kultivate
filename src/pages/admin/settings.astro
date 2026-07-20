@@ -1,0 +1,25 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { adminUser } from '@/lib/demo-data';
+const user = Astro.locals.user ?? adminUser;
+---
+
+<AppLayout title="Pengaturan" heading="Pengaturan" description="Konfigurasi dasar ruang kerja dan pemeriksaan keamanan deployment." role="admin" user={user} activePath="/admin/settings" isDemo={Astro.locals.isDemo}>
+  <div class="settings-grid"><nav class="panel settings-nav"><a class="active" href="#workspace">Ruang kerja</a><a href="#work-rules">Aturan kerja</a><a href="#security">Keamanan</a><a href="#account">Akun admin</a></nav><div class="settings-main"><section class="panel" id="workspace"><div class="panel-header"><div><h2>Ruang kerja</h2><p>Informasi umum yang terlihat oleh seluruh anggota.</p></div></div><form class="panel-body stack"><div class="field"><label for="workspace-name">Nama ruang kerja</label><input class="input" id="workspace-name" value="Tim Internal" /></div><div class="field"><label for="timezone">Zona waktu</label><select class="select" id="timezone"><option>Asia/Jakarta (WIB)</option></select></div><button class="button" type="submit">Simpan pengaturan</button></form></section><section class="panel" id="work-rules"><div class="panel-header"><div><h2>Aturan kerja</h2><p>Nilai ini menjadi default untuk target baru.</p></div></div><div class="panel-body settings-fields"><div class="field"><label for="week-hours">Target mingguan</label><input class="input" id="week-hours" type="number" value="40" /></div><div class="field"><label for="month-hours">Target bulanan</label><input class="input" id="month-hours" type="number" value="160" /></div><div class="field"><label for="overall-hours">Target keseluruhan</label><input class="input" id="overall-hours" type="number" value="600" /></div></div></section><section class="panel" id="security"><div class="panel-header"><div><h2>Pemeriksaan keamanan</h2><p>Status konfigurasi yang wajib sebelum production.</p></div></div><div class="security-list"><div><span>Row Level Security seluruh tabel</span><StatusBadge label="Perlu diverifikasi" tone="warning" /></div><div><span>Private Storage bucket</span><StatusBadge label="Perlu diverifikasi" tone="warning" /></div><div><span>Secret key hanya di server</span><StatusBadge label="Dikonfigurasi" tone="success" /></div><div><span>Akses anonymous dicabut</span><StatusBadge label="Perlu diuji" tone="warning" /></div></div></section></div></div>
+</AppLayout>
+
+<style>
+  .settings-grid, .settings-main { display: grid; gap: 1rem; align-content: start; }
+  .settings-nav { display: flex; overflow-x: auto; padding: .4rem; }
+  .settings-nav a { min-height: 40px; display: flex; align-items: center; padding: .5rem .75rem; border-radius: 8px; color: var(--muted); font-size: .78rem; white-space: nowrap; }
+  .settings-nav a.active { background: var(--primary-soft); color: var(--primary); font-weight: 700; }
+  .settings-main .button { justify-self: start; }
+  .settings-fields { display: grid; gap: 1rem; }
+  .security-list { display: grid; padding: .4rem 1.2rem; }
+  .security-list > div { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid var(--line); }
+  .security-list > div:last-child { border-bottom: 0; }
+  .security-list span { color: var(--ink-soft); font-size: .78rem; }
+  @media (min-width: 760px) { .settings-fields { grid-template-columns: repeat(3, 1fr); } }
+  @media (min-width: 960px) { .settings-grid { grid-template-columns: 220px minmax(0, 1fr); } .settings-nav { display: grid; } }
+</style>

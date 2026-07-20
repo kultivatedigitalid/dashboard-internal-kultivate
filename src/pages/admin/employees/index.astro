@@ -1,0 +1,46 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import ProgressBar from '@/components/ProgressBar.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { adminUser, teamProgress } from '@/lib/demo-data';
+import { calculateProgress } from '@/lib/formatters';
+
+const user = Astro.locals.user ?? adminUser;
+---
+
+<AppLayout title="Karyawan" heading="Karyawan" description="Lihat status akun, progress target, dan aktivitas masing-masing karyawan." role="admin" user={user} activePath="/admin/employees" isDemo={Astro.locals.isDemo}>
+  <button slot="actions" class="button" type="button">Undang karyawan</button>
+  <section class="panel employee-directory">
+    <div class="panel-header directory-toolbar"><div><h2>Direktori tim</h2><p>3 karyawan aktif.</p></div><div class="cluster"><input class="input search" type="search" placeholder="Cari karyawan..." aria-label="Cari karyawan" /><select class="select filter" aria-label="Filter status akun"><option>Semua status</option><option>Aktif</option><option>Nonaktif</option></select></div></div>
+    <div class="employee-cards">
+      {teamProgress.map((employee) => {
+        const value = calculateProgress(employee.approvedHours, employee.targetHours);
+        return <article><div class="employee-top"><span class="avatar large">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><StatusBadge label="Aktif" tone="success" /></div><div class="employee-copy"><h3>{employee.name}</h3><p>{employee.code} · employee</p></div><div class="employee-progress"><div><span>Target 600 jam</span><strong>{employee.approvedHours} jam · {value}%</strong></div><ProgressBar value={value} /></div><dl><div><dt>Minggu ini</dt><dd>{employee.weekHours} jam</dd></div><div><dt>Kehadiran</dt><dd>{employee.attendanceStatus === 'not_checked_in' ? 'Belum check-in' : 'Tercatat'}</dd></div></dl><a class="button secondary" href={`/admin/employees/${employee.id}`}>Buka profil</a></article>;
+      })}
+    </div>
+  </section>
+</AppLayout>
+
+<style>
+  .directory-toolbar { align-items: center; flex-wrap: wrap; }
+  .directory-toolbar .cluster { width: 100%; }
+  .search { flex: 1 1 190px; }
+  .filter { width: auto; }
+  .employee-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 0; }
+  .employee-cards article { display: flex; flex-direction: column; min-width: 0; padding: 1.2rem; border-bottom: 1px solid var(--line); }
+  .employee-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
+  .avatar.large { width: 48px; height: 48px; }
+  .employee-copy { margin-top: .85rem; }
+  .employee-copy h3 { font-size: .92rem; }
+  .employee-copy p { margin-top: .2rem; color: var(--muted); font-size: .7rem; }
+  .employee-progress { display: grid; gap: .5rem; margin: 1.2rem 0; }
+  .employee-progress > div { display: flex; justify-content: space-between; gap: 1rem; font-size: .7rem; }
+  .employee-progress span { color: var(--muted); }
+  .employee-progress strong { font-variant-numeric: tabular-nums; }
+  .employee-cards dl { display: grid; gap: .55rem; margin: 0 0 1.2rem; }
+  .employee-cards dl div { display: flex; justify-content: space-between; gap: 1rem; }
+  .employee-cards dt { color: var(--muted); font-size: .7rem; }
+  .employee-cards dd { margin: 0; font-size: .72rem; font-weight: 650; }
+  .employee-cards .button { width: 100%; margin-top: auto; }
+  @media (min-width: 680px) { .employee-cards article { border-right: 1px solid var(--line); } .directory-toolbar .cluster { width: auto; } }
+</style>

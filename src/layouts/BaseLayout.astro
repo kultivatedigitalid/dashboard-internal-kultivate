@@ -1,0 +1,30 @@
+---
+import '@/styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  bodyClass?: string;
+}
+
+const {
+  title,
+  description = 'Dashboard internal untuk memantau aktivitas, target, tugas, dan laporan.',
+  bodyClass = '',
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={description} />
+    <meta name="theme-color" content="#303923" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>{title} · Internal Work Dashboard</title>
+  </head>
+  <body class={bodyClass}>
+    <slot />
+  </body>
+</html>

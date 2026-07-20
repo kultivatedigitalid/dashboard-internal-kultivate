@@ -1,0 +1,48 @@
+---
+import ProgressBar from './ProgressBar.astro';
+import StatusBadge from './StatusBadge.astro';
+import type { DashboardTask } from '@/lib/types';
+import { formatDate } from '@/lib/formatters';
+
+interface Props { task: DashboardTask; admin?: boolean }
+const { task, admin = false } = Astro.props;
+const priorityMap = {
+  low: { label: 'Rendah', tone: 'neutral' as const },
+  medium: { label: 'Sedang', tone: 'info' as const },
+  high: { label: 'Tinggi', tone: 'warning' as const },
+  urgent: { label: 'Mendesak', tone: 'danger' as const },
+};
+const priority = priorityMap[task.priority];
+---
+
+<article class="task-row">
+  <div class="task-check" aria-hidden="true">{task.status === 'completed' ? '✓' : ''}</div>
+  <div class="task-main">
+    <div class="task-heading">
+      <a href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`}>{task.title}</a>
+      <StatusBadge label={priority.label} tone={priority.tone} />
+    </div>
+    <div class="task-meta">
+      {admin && <span>{task.assignee}</span>}
+      <span>Deadline {formatDate(task.dueDate)}</span>
+      <span>{task.checklistDone}/{task.checklistTotal} checklist</span>
+    </div>
+    <ProgressBar value={task.progress} />
+  </div>
+  <strong class="task-progress">{task.progress}%</strong>
+  <a class="task-open" href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`} aria-label={`Buka ${task.title}`}>→</a>
+</article>
+
+<style>
+  .task-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: start; gap: .85rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line); }
+  .task-row:last-child { border-bottom: 0; }
+  .task-check { width: 24px; height: 24px; display: grid; place-items: center; margin-top: .05rem; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--primary); font-weight: 800; }
+  .task-main { min-width: 0; display: grid; gap: .6rem; }
+  .task-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .55rem; }
+  .task-heading a { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .task-heading a:hover { color: var(--primary); }
+  .task-meta { display: flex; flex-wrap: wrap; gap: .35rem 1rem; color: var(--muted); font-size: .72rem; }
+  .task-progress { display: none; color: var(--ink-soft); font-size: .8rem; font-variant-numeric: tabular-nums; }
+  .task-open { grid-column: 3; color: var(--primary); font-weight: 800; }
+  @media (min-width: 620px) { .task-row { grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; } .task-progress { display: block; } .task-open { grid-column: auto; } }
+</style>

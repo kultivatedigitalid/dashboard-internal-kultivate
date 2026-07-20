@@ -1,0 +1,33 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import TaskRow from '@/components/TaskRow.astro';
+import StatBlock from '@/components/StatBlock.astro';
+import { employeeTasks, employeeUser } from '@/lib/demo-data';
+
+const user = Astro.locals.user ?? employeeUser;
+---
+
+<AppLayout title="Tugas" heading="Tugas saya" description="Prioritaskan pekerjaan, perbarui progres, dan lampirkan bukti pada setiap tugas." role="employee" user={user} activePath="/app/tasks" isDemo={Astro.locals.isDemo}>
+  <section class="metrics-grid">
+    <StatBlock label="Aktif" value="3" helper="Semua tugas berjalan" />
+    <StatBlock label="Mendekati deadline" value="1" helper="Dalam 3 hari" trend="Perlu perhatian" tone="warning" />
+    <StatBlock label="Selesai bulan ini" value="8" helper="2 lebih banyak dari Juni" trend="+25%" tone="success" />
+  </section>
+
+  <section class="panel tasks-list-panel">
+    <div class="panel-header task-toolbar">
+      <div><h2>Daftar tugas</h2><p>Menampilkan 3 tugas aktif.</p></div>
+      <form class="task-filters"><label class="sr-only" for="task-search">Cari tugas</label><input class="input" id="task-search" type="search" placeholder="Cari tugas..." /><select class="select" aria-label="Filter status"><option>Semua status</option><option>Belum dimulai</option><option>Dalam proses</option><option>Dalam review</option></select></form>
+    </div>
+    <div>{employeeTasks.map((task) => <TaskRow task={task} />)}</div>
+  </section>
+</AppLayout>
+
+<style>
+  .tasks-list-panel { margin-top: 1rem; }
+  .task-toolbar { align-items: center; flex-wrap: wrap; }
+  .task-filters { width: 100%; display: flex; flex-wrap: wrap; gap: .55rem; }
+  .task-filters .input { flex: 1 1 180px; }
+  .task-filters .select { flex: 0 1 170px; }
+  @media (min-width: 860px) { .task-filters { width: auto; } }
+</style>

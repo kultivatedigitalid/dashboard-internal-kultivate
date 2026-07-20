@@ -1,0 +1,39 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { employeeUser } from '@/lib/demo-data';
+
+const user = Astro.locals.user ?? employeeUser;
+---
+
+<AppLayout title="Profil" heading="Profil saya" description="Periksa informasi akun dan evaluasi yang terlihat untuk Anda." role="employee" user={user} activePath="/app/profile" isDemo={Astro.locals.isDemo}>
+  <div class="profile-grid">
+    <section class="panel profile-card">
+      <div class="profile-identity"><span class="avatar large">{user.avatar}</span><div><h2>{user.fullName}</h2><p>{user.employeeCode} · Karyawan</p><StatusBadge label="Akun aktif" tone="success" /></div></div>
+      <dl><div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Zona waktu</dt><dd>Asia/Jakarta</dd></div><div><dt>Bergabung</dt><dd>1 Juli 2026</dd></div><div><dt>Target utama</dt><dd>600 jam</dd></div></dl>
+    </section>
+    <section class="panel account-settings"><div class="panel-header"><div><h2>Informasi profil</h2><p>Nama dan kode karyawan dikelola admin.</p></div></div><form class="panel-body stack"><div class="field"><label for="name">Nama lengkap</label><input class="input" id="name" value={user.fullName} disabled /></div><div class="field"><label for="profile-email">Email</label><input class="input" id="profile-email" type="email" value={user.email} disabled /></div><div class="field"><label for="portfolio">URL portofolio</label><input class="input" id="portfolio" type="url" placeholder="https://" /></div><button class="button" type="submit">Simpan perubahan</button></form></section>
+    <section class="panel evaluations" id="evaluations"><div class="panel-header"><div><h2>Evaluasi terbaru</h2><p>Hanya evaluasi dengan visibilitas karyawan yang ditampilkan.</p></div></div><article><div class="evaluation-meta"><span>17 Juli 2026</span><StatusBadge label="4 dari 5" tone="success" /></div><h3>Kualitas laporan mingguan</h3><p>Struktur laporan semakin jelas. Pertahankan dokumentasi kendala dan sertakan hasil yang dapat diukur agar progres lebih mudah ditinjau.</p><small>Diberikan oleh Hans Galdino · terkait laporan minggu ke-28</small></article></section>
+  </div>
+</AppLayout>
+
+<style>
+  .profile-grid { display: grid; gap: 1rem; }
+  .profile-card { padding: 1.3rem; }
+  .profile-identity { display: flex; align-items: center; gap: 1rem; padding-bottom: 1.2rem; border-bottom: 1px solid var(--line); }
+  .avatar.large { width: 60px; height: 60px; font-size: 1rem; }
+  .profile-identity h2 { font-size: 1rem; }
+  .profile-identity p { margin: .2rem 0 .5rem; color: var(--muted); font-size: .75rem; }
+  .profile-card dl { display: grid; gap: .8rem; margin: 1.2rem 0 0; }
+  .profile-card dl div { display: flex; justify-content: space-between; gap: 1rem; }
+  .profile-card dt { color: var(--muted); font-size: .75rem; }
+  .profile-card dd { margin: 0; font-size: .78rem; font-weight: 650; text-align: right; }
+  .account-settings .button { justify-self: start; }
+  .evaluations { grid-column: 1 / -1; }
+  .evaluations article { padding: 1.25rem; }
+  .evaluation-meta { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .72rem; }
+  .evaluations h3 { margin-top: 1rem; font-size: 1rem; }
+  .evaluations article p { max-width: 70ch; margin: .5rem 0 1rem; color: var(--ink-soft); }
+  .evaluations article small { color: var(--muted); }
+  @media (min-width: 900px) { .profile-grid { grid-template-columns: minmax(270px,.6fr) minmax(0,1.4fr); } }
+</style>

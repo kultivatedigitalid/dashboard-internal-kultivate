@@ -1,0 +1,43 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import ProgressBar from '@/components/ProgressBar.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { adminUser, teamProgress } from '@/lib/demo-data';
+import { calculateProgress } from '@/lib/formatters';
+const user = Astro.locals.user ?? adminUser;
+---
+
+<AppLayout title="Target" heading="Target kerja" description="Kelola target overall, mingguan, dan bulanan. Nilai aktual hanya berasal dari jam approved." role="admin" user={user} activePath="/admin/targets" isDemo={Astro.locals.isDemo}>
+  <button slot="actions" class="button" type="button" data-target-toggle>Buat target</button>
+  <section class="panel target-form" data-target-form hidden><div class="panel-header"><div><h2>Target baru</h2><p>Tentukan periode dan karyawan.</p></div><button class="button ghost" type="button" data-target-close>Tutup</button></div><form class="panel-body target-fields"><div class="field"><label for="target-employee">Karyawan</label><select class="select" id="target-employee"><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select></div><div class="field"><label for="target-type">Jenis target</label><select class="select" id="target-type"><option>Overall</option><option>Mingguan</option><option>Bulanan</option></select></div><div class="field"><label for="target-hours">Target jam</label><input class="input" id="target-hours" type="number" min="0" value="600" /></div><div class="form-action"><button class="button" type="submit">Simpan target</button></div></form></section>
+  <section class="panel targets-panel"><div class="panel-header"><div><h2>Target keseluruhan</h2><p>Periode aktif untuk seluruh karyawan.</p></div><StatusBadge label="3 target aktif" tone="success" /></div><div class="target-list">{teamProgress.map((employee) => { const progress = calculateProgress(employee.approvedHours, employee.targetHours); return <article><div class="target-employee"><span class="avatar">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><strong>{employee.name}</strong><small>{employee.code}</small></div></div><div class="target-progress"><div><span>{employee.approvedHours} jam aktual</span><strong>{progress}%</strong></div><ProgressBar value={progress} /></div><div class="target-value"><span>Target</span><strong>{employee.targetHours} jam</strong></div><button class="button secondary" type="button">Edit</button></article>; })}</div></section>
+  <div class="period-targets"><section class="panel"><div class="panel-header"><div><h2>Target mingguan</h2><p>20–26 Juli 2026</p></div><button class="button ghost" type="button">Edit</button></div><div class="panel-body period-copy"><strong>40 jam</strong><span>per karyawan</span><p>Rata-rata aktual tim saat ini 31 jam.</p></div></section><section class="panel"><div class="panel-header"><div><h2>Target bulanan</h2><p>Juli 2026</p></div><button class="button ghost" type="button">Edit</button></div><div class="panel-body period-copy"><strong>160 jam</strong><span>per karyawan</span><p>Rata-rata aktual tim saat ini 122,7 jam.</p></div></section></div>
+  <script>
+    const form = document.querySelector<HTMLElement>('[data-target-form]');
+    document.querySelector('[data-target-toggle]')?.addEventListener('click', () => { if (form) { form.hidden = false; form.scrollIntoView({ behavior: 'smooth' }); } });
+    document.querySelector('[data-target-close]')?.addEventListener('click', () => { if (form) form.hidden = true; });
+  </script>
+</AppLayout>
+
+<style>
+  .target-form, .targets-panel, .period-targets { margin-top: 1rem; }
+  .target-fields { display: grid; gap: 1rem; }
+  .form-action { display: flex; align-items: end; }
+  .target-list article { display: grid; gap: 1rem; padding: 1rem 1.2rem; border-bottom: 1px solid var(--line); }
+  .target-list article:last-child { border-bottom: 0; }
+  .target-employee { display: flex; align-items: center; gap: .7rem; }
+  .target-employee > div { display: grid; }
+  .target-employee strong { font-size: .8rem; }
+  .target-employee small { color: var(--muted); font-size: .68rem; }
+  .target-progress { display: grid; gap: .45rem; }
+  .target-progress > div { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .7rem; }
+  .target-progress strong { color: var(--ink-soft); }
+  .target-value { display: grid; }
+  .target-value span { color: var(--muted); font-size: .68rem; }
+  .target-value strong { font-size: .82rem; }
+  .period-targets { display: grid; gap: 1rem; }
+  .period-copy strong { font-size: 1.8rem; letter-spacing: -.035em; }
+  .period-copy > span { margin-left: .35rem; color: var(--muted); font-size: .75rem; }
+  .period-copy p { margin-top: .65rem; color: var(--muted); font-size: .74rem; }
+  @media (min-width: 760px) { .target-fields { grid-template-columns: repeat(4, 1fr); } .target-list article { grid-template-columns: minmax(210px, .9fr) minmax(220px,1.3fr) auto auto; align-items: center; } .period-targets { grid-template-columns: 1fr 1fr; } }
+</style>

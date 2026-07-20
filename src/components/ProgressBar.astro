@@ -1,0 +1,18 @@
+---
+interface Props { value: number; label?: string; showValue?: boolean }
+const { value, label = 'Progres', showValue = false } = Astro.props;
+const bounded = Math.max(0, Math.min(100, value));
+---
+
+<div class="progress" aria-label={`${label}: ${Math.round(value)}%`}>
+  {showValue && <div class="progress-meta"><span>{label}</span><strong>{Math.round(value)}%</strong></div>}
+  <div class="progress-track" role="progressbar" aria-valuenow={Math.round(value)} aria-valuemin="0" aria-valuemax="100">
+    <div class="progress-value" style={`width:${bounded}%`}></div>
+  </div>
+</div>
+
+<style>
+  .progress { display: grid; gap: .45rem; }
+  .progress-meta { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .78rem; }
+  .progress-meta strong { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+</style>

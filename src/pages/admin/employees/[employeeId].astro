@@ -1,0 +1,46 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import ProgressBar from '@/components/ProgressBar.astro';
+import StatBlock from '@/components/StatBlock.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import TaskRow from '@/components/TaskRow.astro';
+import { adminUser, employeeTasks, teamProgress } from '@/lib/demo-data';
+import { calculateProgress } from '@/lib/formatters';
+
+const user = Astro.locals.user ?? adminUser;
+const employee = teamProgress.find((item) => item.id === Astro.params.employeeId) ?? teamProgress[0];
+if (!employee) return Astro.redirect('/admin/employees');
+const progress = calculateProgress(employee.approvedHours, employee.targetHours);
+---
+
+<AppLayout title={employee.name} heading={employee.name} description={`${employee.code} · Akun aktif · Karyawan`} role="admin" user={user} activePath={`/admin/employees/${employee.id}`} isDemo={Astro.locals.isDemo}>
+  <button slot="actions" class="button secondary" type="button">Kelola akun</button><a slot="actions" class="button" href="/admin/evaluations">Buat evaluasi</a>
+  <section class="employee-hero panel">
+    <div class="identity"><span class="avatar huge">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><StatusBadge label="Aktif" tone="success" /><h2>{employee.name}</h2><p>{employee.code} · employee</p></div></div>
+    <div class="overall"><div><span>Target keseluruhan</span><strong>{employee.approvedHours}<small> / {employee.targetHours} jam</small></strong></div><ProgressBar value={progress} label="Progres target" showValue /></div>
+  </section>
+  <section class="metrics-grid employee-metrics"><StatBlock label="Minggu ini" value={`${employee.weekHours} jam`} helper="Target 40 jam" /><StatBlock label="Bulan ini" value="126 jam" helper="Target 160 jam" /><StatBlock label="Tugas aktif" value="3" helper="1 mendekati deadline" trend="Perlu perhatian" tone="warning" /><StatBlock label="Laporan terakhir" value="Reviewed" helper="Minggu ke-28" trend="Selesai" tone="success" /></section>
+  <div class="employee-detail-grid"><section class="panel"><div class="panel-header"><div><h2>Tugas aktif</h2><p>Pekerjaan yang sedang berjalan.</p></div><a class="text-link" href="/admin/tasks">Kelola tugas</a></div>{employeeTasks.slice(0,2).map((task) => <TaskRow task={{...task, assignee: employee.name}} admin />)}</section><aside class="panel"><div class="panel-header"><div><h2>Aktivitas terbaru</h2><p>Ringkasan 7 hari terakhir.</p></div></div><div class="timeline"><div><span></span><p><strong>Check-in dari kantor</strong><small>Hari ini, 08.03</small></p></div><div><span></span><p><strong>Mengirim laporan minggu ke-28</strong><small>17 Juli, 16.42</small></p></div><div><span></span><p><strong>Menyelesaikan checklist tugas</strong><small>16 Juli, 14.20</small></p></div></div></aside></div>
+</AppLayout>
+
+<style>
+  .employee-hero { display: grid; gap: 1.5rem; padding: 1.3rem; }
+  .identity { display: flex; align-items: center; gap: 1rem; }
+  .avatar.huge { width: 64px; height: 64px; font-size: 1rem; }
+  .identity h2 { margin-top: .55rem; font-size: 1.05rem; }
+  .identity p { color: var(--muted); font-size: .72rem; }
+  .overall { display: grid; gap: .8rem; }
+  .overall > div:first-child { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; }
+  .overall span { color: var(--muted); font-size: .72rem; }
+  .overall strong { font-size: 1.35rem; font-variant-numeric: tabular-nums; }
+  .overall small { color: var(--muted); font-size: .7rem; }
+  .employee-metrics, .employee-detail-grid { margin-top: 1rem; }
+  .employee-detail-grid { display: grid; gap: 1rem; }
+  .timeline { display: grid; padding: .5rem 1.2rem; }
+  .timeline > div { display: grid; grid-template-columns: auto 1fr; gap: .75rem; padding: .75rem 0; }
+  .timeline > div > span { width: 8px; height: 8px; margin-top: .4rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
+  .timeline p { font-size: .76rem; }
+  .timeline small { display: block; color: var(--muted); }
+  @media (min-width: 760px) { .employee-hero { grid-template-columns: 1fr 1fr; align-items: center; } }
+  @media (min-width: 1100px) { .employee-detail-grid { grid-template-columns: 1.4fr .6fr; } }
+</style>

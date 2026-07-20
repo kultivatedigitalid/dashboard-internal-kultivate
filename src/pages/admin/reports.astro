@@ -1,0 +1,36 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import StatBlock from '@/components/StatBlock.astro';
+import { adminUser } from '@/lib/demo-data';
+const user = Astro.locals.user ?? adminUser;
+const reports = [
+  { employee:'Airin Frantrishia Lay', week:'Minggu ke-29', date:'20–26 Jul', submitted:'20 Jul, 11.42', status:'Submitted' },
+  { employee:'Davis Ariel', week:'Minggu ke-29', date:'20–26 Jul', submitted:'20 Jul, 09.18', status:'Submitted' },
+  { employee:'Joshua Wijaya', week:'Minggu ke-29', date:'20–26 Jul', submitted:'Belum dikirim', status:'Draft' },
+  { employee:'Joshua Wijaya', week:'Minggu ke-28', date:'13–19 Jul', submitted:'17 Jul, 16.42', status:'Reviewed' },
+];
+---
+
+<AppLayout title="Review laporan" heading="Laporan mingguan" description="Tinjau hasil kerja, kendala, dan rencana berikutnya sebelum mengunci laporan." role="admin" user={user} activePath="/admin/reports" isDemo={Astro.locals.isDemo}>
+  <section class="metrics-grid"><StatBlock label="Menunggu review" value="2" helper="Minggu ke-29" trend="Perlu tindakan" tone="warning" /><StatBlock label="Belum dikirim" value="1" helper="Joshua Wijaya" /><StatBlock label="Direview bulan ini" value="9" helper="Dari 12 laporan" trend="75%" tone="success" /></section>
+  <section class="panel reports-list"><div class="panel-header report-toolbar"><div><h2>Semua laporan</h2><p>Menampilkan periode Juli 2026.</p></div><form><select class="select"><option>Semua karyawan</option><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select><select class="select"><option>Semua status</option><option>Submitted</option><option>Reviewed</option><option>Draft</option></select></form></div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Periode</th><th>Rentang tanggal</th><th>Dikirim</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{reports.map((report) => <tr><td><strong>{report.employee}</strong></td><td>{report.week}</td><td>{report.date}</td><td>{report.submitted}</td><td><StatusBadge label={report.status} tone={report.status === 'Reviewed' ? 'success' : report.status === 'Submitted' ? 'warning' : 'neutral'} /></td><td><button class="button ghost" type="button">Buka laporan</button></td></tr>)}</tbody></table></div></section>
+  <section class="panel report-review"><div class="panel-header"><div><h2>Airin · Minggu ke-29</h2><p>Dikirim 20 Juli 2026, 11.42 WIB</p></div><StatusBadge label="Submitted" tone="warning" /></div><div class="panel-body report-content"><section><span>Ringkasan aktivitas</span><p>Menyelesaikan design token, layout dashboard karyawan, serta pengujian responsif pada mobile dan tablet.</p></section><section><span>Pencapaian</span><ul><li>Menetapkan token warna dan spacing.</li><li>Menyelesaikan dashboard karyawan untuk desktop dan mobile.</li><li>Menguji navigasi keyboard pada komponen utama.</li></ul></section><div class="report-pair"><section><span>Kendala</span><p>Perlu sinkronisasi dengan struktur data final untuk status absensi.</p></section><section><span>Rencana berikutnya</span><p>Menyelesaikan halaman absensi dan weekly report.</p></section></div><div class="field"><label for="report-note">Catatan review</label><textarea class="textarea" id="report-note" placeholder="Berikan feedback yang spesifik dan dapat ditindaklanjuti"></textarea></div><div class="review-actions"><button class="button secondary" type="button">Minta revisi</button><button class="button" type="button">Tandai reviewed</button></div></div></section>
+</AppLayout>
+
+<style>
+  .reports-list, .report-review { margin-top: 1rem; }
+  .report-toolbar { align-items: center; flex-wrap: wrap; }
+  .report-toolbar form { width: 100%; display: flex; flex-wrap: wrap; gap: .5rem; }
+  .report-toolbar .select { flex: 1 1 170px; }
+  .report-content { display: grid; gap: 1.2rem; }
+  .report-content section { padding: 1rem; border-radius: 10px; background: var(--surface); }
+  .report-content section > span { color: var(--muted); font-size: .7rem; font-weight: 700; }
+  .report-content section p, .report-content li { color: var(--ink-soft); font-size: .8rem; }
+  .report-content section p { margin-top: .4rem; }
+  .report-content ul { margin-bottom: 0; padding-left: 1.1rem; }
+  .report-pair { display: grid; gap: 1rem; }
+  .review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; }
+  @media (min-width: 760px) { .report-pair { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) { .report-toolbar form { width: auto; } }
+</style>

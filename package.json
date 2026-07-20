@@ -1,0 +1,35 @@
+{
+  "name": "internal-work-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "setup:supabase": "powershell -ExecutionPolicy Bypass -File scripts/setup-supabase.ps1"
+  },
+  "dependencies": {
+    "@astrojs/vercel": "latest",
+    "@supabase/auth-js": "2.110.7",
+    "@supabase/realtime-js": "2.110.7",
+    "@supabase/ssr": "latest",
+    "@supabase/supabase-js": "latest",
+    "astro": "7.1.1",
+    "css-select": "5.2.2",
+    "oniguruma-parser": "0.12.2",
+    "rolldown": "1.1.5",
+    "unstorage": "1.17.5"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.9",
+    "typescript": "6.0.3",
+    "vitest": "latest"
+  }
+}

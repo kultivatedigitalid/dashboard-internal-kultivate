@@ -1,0 +1,22 @@
+---
+interface Props { compact?: boolean; inverse?: boolean }
+const { compact = false, inverse = false } = Astro.props;
+---
+
+<a class:list={['brand', { compact, inverse }]} href="/" aria-label="Internal Work Dashboard">
+  <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
+  {!compact && <span class="brand-copy"><strong>Internal</strong><small>Work Dashboard</small></span>}
+</a>
+
+<style>
+  .brand { display: inline-flex; align-items: center; gap: .7rem; color: var(--ink); }
+  .brand-mark { width: 34px; height: 34px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 8px; border-radius: 9px; background: var(--primary); }
+  .brand-mark i { display: block; border-radius: 2px; background: white; }
+  .brand-copy { display: grid; line-height: 1.05; }
+  .brand-copy strong { font-size: .875rem; letter-spacing: -.015em; }
+  .brand-copy small { margin-top: .22rem; color: var(--muted); font-size: .68rem; }
+  .inverse { color: white; }
+  .inverse .brand-mark { background: white; }
+  .inverse .brand-mark i { background: var(--sidebar); }
+  .inverse .brand-copy small { color: var(--sidebar-muted); }
+</style>

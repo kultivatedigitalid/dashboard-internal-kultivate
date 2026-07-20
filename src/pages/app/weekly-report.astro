@@ -1,0 +1,73 @@
+---
+import { actions } from 'astro:actions';
+import AppLayout from '@/layouts/AppLayout.astro';
+import ProgressBar from '@/components/ProgressBar.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { employeeUser } from '@/lib/demo-data';
+
+const user = Astro.locals.user ?? employeeUser;
+const result = Astro.getActionResult(actions.saveWeeklyReport);
+---
+
+<AppLayout title="Laporan mingguan" heading="Laporan mingguan" description="Dokumentasikan aktivitas, hasil, kendala, dan rencana minggu berikutnya." role="employee" user={user} activePath="/app/weekly-report" isDemo={Astro.locals.isDemo}>
+  <div slot="actions" class="report-state"><StatusBadge label="Draft tersimpan" tone="neutral" /><span>Minggu ke-29 · 20–26 Jul</span></div>
+  {result && !result.error && <div class="alert success" role="status">{result.data.message}</div>}
+  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+
+  <form method="POST" action={actions.saveWeeklyReport} class="report-layout">
+    <section class="panel report-form">
+      <div class="report-section">
+        <div class="report-section-head"><span>1</span><div><h2>Ringkasan aktivitas</h2><p>Gambarkan fokus utama Anda minggu ini.</p></div></div>
+        <div class="field"><label for="summary">Ringkasan <span aria-hidden="true">*</span></label><textarea class="textarea tall" id="summary" name="summary" required placeholder="Minggu ini saya berfokus pada..."></textarea><small class="field-hint">Wajib diisi sebelum laporan dikirim.</small></div>
+      </div>
+      <div class="report-section">
+        <div class="report-section-head"><span>2</span><div><h2>Pencapaian</h2><p>Catat hasil yang sudah selesai atau dapat diukur.</p></div></div>
+        <div class="field"><label for="achievements">Pencapaian minggu ini</label><textarea class="textarea tall" id="achievements" name="achievements" placeholder="Contoh: Menyelesaikan 4 dari 5 checklist setup..."></textarea></div>
+      </div>
+      <div class="report-section split-fields">
+        <div><div class="report-section-head"><span>3</span><div><h2>Kendala</h2><p>Apa yang memperlambat pekerjaan?</p></div></div><div class="field"><label for="blockers">Kendala</label><textarea class="textarea" id="blockers" name="blockers" placeholder="Belum ada kendala / jelaskan kendala..."></textarea></div></div>
+        <div><div class="report-section-head"><span>4</span><div><h2>Rencana berikutnya</h2><p>Tentukan langkah konkret berikutnya.</p></div></div><div class="field"><label for="nextPlan">Rencana minggu depan</label><textarea class="textarea" id="nextPlan" name="nextPlan" placeholder="Minggu depan saya akan..."></textarea></div></div>
+      </div>
+      <div class="report-section">
+        <div class="report-section-head"><span>5</span><div><h2>Materi dan video</h2><p>Tautkan video presentasi; unggah file besar melalui penyedia eksternal.</p></div></div>
+        <div class="field"><label for="videoUrl">URL video</label><input class="input" id="videoUrl" name="videoUrl" type="url" placeholder="https://youtube.com/..." /></div>
+      </div>
+      <div class="report-actions"><button class="button secondary" type="submit" name="intent" value="draft">Simpan draft</button><button class="button" type="submit" name="intent" value="submit">Kirim untuk direview</button></div>
+    </section>
+
+    <aside class="report-aside">
+      <section class="panel completion-card">
+        <div class="panel-header"><div><h2>Kelengkapan laporan</h2><p>3 dari 5 bagian telah diisi.</p></div><strong>60%</strong></div>
+        <div class="panel-body"><ProgressBar value={60} /><ul><li class="done">Ringkasan aktivitas</li><li class="done">Pencapaian</li><li>Kendala</li><li class="done">Rencana berikutnya</li><li>Materi dan video</li></ul></div>
+      </section>
+      <section class="panel previous-report"><div class="panel-body"><span>Laporan sebelumnya</span><h2>Minggu ke-28</h2><StatusBadge label="Sudah direview" tone="success" /><p>“Dokumentasi hasil sudah baik. Tambahkan metrik pada pencapaian berikutnya.”</p><a class="text-link" href="#">Buka laporan →</a></div></section>
+    </aside>
+  </form>
+</AppLayout>
+
+<style>
+  .report-state { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; color: var(--muted); font-size: .74rem; }
+  .report-layout { display: grid; gap: 1rem; margin-top: 1rem; }
+  .report-form { overflow: hidden; }
+  .report-section { padding: 1.3rem; border-bottom: 1px solid var(--line); }
+  .report-section-head { display: flex; align-items: flex-start; gap: .75rem; margin-bottom: 1rem; }
+  .report-section-head > span { width: 26px; height: 26px; display: grid; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-size: .72rem; font-weight: 800; }
+  .report-section-head h2 { font-size: .95rem; }
+  .report-section-head p { margin-top: .2rem; color: var(--muted); font-size: .74rem; }
+  .report-section .field > label span { color: var(--danger); }
+  .tall { min-height: 145px; }
+  .split-fields { display: grid; gap: 1.5rem; }
+  .report-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .65rem; padding: 1rem 1.3rem; background: var(--surface); }
+  .report-aside { display: grid; align-content: start; gap: 1rem; }
+  .completion-card .panel-header > strong { color: var(--primary); }
+  .completion-card ul { display: grid; gap: .7rem; margin: 1rem 0 0; padding: 0; list-style: none; }
+  .completion-card li { position: relative; padding-left: 1.45rem; color: var(--muted); font-size: .76rem; }
+  .completion-card li::before { position: absolute; left: 0; width: 16px; height: 16px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 50%; content: ''; }
+  .completion-card li.done { color: var(--ink-soft); }
+  .completion-card li.done::before { border-color: var(--primary); background: var(--primary); color: white; content: '✓'; font-size: .6rem; }
+  .previous-report span { color: var(--muted); font-size: .7rem; }
+  .previous-report h2 { margin: .25rem 0 .6rem; font-size: 1rem; }
+  .previous-report p { margin: 1rem 0; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; }
+  @media (min-width: 760px) { .split-fields { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1080px) { .report-layout { grid-template-columns: minmax(0, 1.45fr) minmax(300px, .55fr); } }
+</style>

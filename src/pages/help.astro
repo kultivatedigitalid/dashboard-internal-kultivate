@@ -1,0 +1,22 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Logo from '@/components/Logo.astro';
+---
+
+<BaseLayout title="Panduan penggunaan">
+  <main class="help-shell">
+    <header><Logo /><a class="button secondary" href={Astro.locals.role === 'admin' ? '/admin' : '/app'}>Kembali ke dashboard</a></header>
+    <article><span>Panduan singkat</span><h1>Mulai menggunakan dashboard</h1><p>Gunakan menu utama untuk berpindah modul. Karyawan mencatat absensi dan progres sendiri; admin meninjau data sebelum masuk ke target 600 jam.</p><h2>Alur harian karyawan</h2><ol><li>Check-in menggunakan waktu server.</li><li>Buka tugas prioritas dan perbarui checklist.</li><li>Check-out setelah aktivitas selesai.</li><li>Lengkapi laporan mingguan sebelum Jumat.</li></ol><h2>Jika menemukan masalah</h2><p>Catat pesan yang muncul dan hubungi administrator. Jangan membagikan password atau secret key melalui chat.</p></article>
+  </main>
+</BaseLayout>
+
+<style>
+  .help-shell { width: min(100% - 2rem, 900px); margin: 0 auto; }
+  .help-shell header { min-height: 80px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); }
+  .help-shell article { padding: clamp(2rem, 6vw, 5rem) 0; }
+  .help-shell article > span { color: var(--primary); font-weight: 750; }
+  .help-shell h1 { max-width: 12ch; margin-top: .5rem; font-size: clamp(2.2rem, 6vw, 4rem); }
+  .help-shell article > p { max-width: 70ch; margin-top: 1rem; color: var(--muted); }
+  .help-shell h2 { margin-top: 2.5rem; font-size: 1.2rem; }
+  .help-shell ol { display: grid; gap: .7rem; padding-left: 1.25rem; color: var(--ink-soft); }
+</style>

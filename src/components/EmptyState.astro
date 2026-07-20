@@ -1,0 +1,17 @@
+---
+interface Props { title: string; description: string; actionLabel?: string; actionHref?: string }
+const { title, description, actionLabel, actionHref = '#' } = Astro.props;
+---
+
+<div class="empty-state">
+  <div class="empty-state-inner">
+    <div class="empty-mark" aria-hidden="true">✓</div>
+    <h3>{title}</h3>
+    <p>{description}</p>
+    {actionLabel && <a class="button secondary" href={actionHref}>{actionLabel}</a>}
+  </div>
+</div>
+
+<style>
+  .empty-mark { width: 44px; height: 44px; display: grid; place-items: center; margin: 0 auto 1rem; border-radius: 50%; background: var(--primary-soft); color: var(--primary); font-weight: 800; }
+</style>

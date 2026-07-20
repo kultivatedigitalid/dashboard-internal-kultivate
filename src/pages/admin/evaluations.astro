@@ -1,0 +1,30 @@
+---
+import AppLayout from '@/layouts/AppLayout.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import { adminUser } from '@/lib/demo-data';
+const user = Astro.locals.user ?? adminUser;
+const evaluations = [
+  { employee:'Joshua Wijaya', title:'Kualitas laporan mingguan', date:'17 Jul 2026', score:'4/5', visibility:'Karyawan' },
+  { employee:'Airin Frantrishia Lay', title:'Konsistensi dokumentasi', date:'17 Jul 2026', score:'5/5', visibility:'Karyawan' },
+  { employee:'Davis Ariel', title:'Catatan internal progress', date:'16 Jul 2026', score:'—', visibility:'Admin saja' },
+];
+---
+
+<AppLayout title="Evaluasi" heading="Evaluasi karyawan" description="Berikan feedback yang spesifik dan atur apakah evaluasi terlihat oleh karyawan." role="admin" user={user} activePath="/admin/evaluations" isDemo={Astro.locals.isDemo}>
+  <button slot="actions" class="button" type="button" data-evaluation-toggle>Buat evaluasi</button>
+  <section class="panel evaluation-form" data-evaluation-form><div class="panel-header"><div><h2>Evaluasi baru</h2><p>Feedback akan muncul di dashboard jika visibilitas diatur ke karyawan.</p></div><button class="button ghost" type="button" data-evaluation-close>Tutup</button></div><form class="panel-body evaluation-fields"><div class="field"><label for="evaluation-employee">Karyawan</label><select class="select" id="evaluation-employee" required><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select></div><div class="field"><label for="evaluation-score">Nilai opsional</label><select class="select" id="evaluation-score"><option>Tanpa nilai</option><option>5 — Sangat baik</option><option selected>4 — Baik</option><option>3 — Cukup</option><option>2 — Perlu perbaikan</option><option>1 — Tidak memenuhi</option></select></div><div class="field"><label for="visibility">Visibilitas</label><select class="select" id="visibility"><option>Terlihat oleh karyawan</option><option>Admin saja</option></select></div><div class="field wide"><label for="evaluation-title">Judul</label><input class="input" id="evaluation-title" required placeholder="Contoh: Kualitas laporan minggu ke-29" /></div><div class="field wide"><label for="evaluation-note">Catatan evaluasi</label><textarea class="textarea" id="evaluation-note" required placeholder="Tuliskan feedback dan langkah yang dapat ditindaklanjuti"></textarea></div><div class="form-actions wide"><button class="button secondary" type="button">Simpan draft</button><button class="button" type="submit">Publikasikan evaluasi</button></div></form></section>
+  <section class="panel evaluation-list"><div class="panel-header"><div><h2>Riwayat evaluasi</h2><p>3 evaluasi terbaru.</p></div><select class="select compact"><option>Semua karyawan</option></select></div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Evaluasi</th><th>Tanggal</th><th>Nilai</th><th>Visibilitas</th><th>Aksi</th></tr></thead><tbody>{evaluations.map((entry) => <tr><td><strong>{entry.employee}</strong></td><td>{entry.title}</td><td>{entry.date}</td><td>{entry.score}</td><td><StatusBadge label={entry.visibility} tone={entry.visibility === 'Karyawan' ? 'success' : 'neutral'} /></td><td><button class="button ghost" type="button">Edit</button></td></tr>)}</tbody></table></div></section>
+  <script>
+    const form = document.querySelector<HTMLElement>('[data-evaluation-form]');
+    document.querySelector('[data-evaluation-toggle]')?.addEventListener('click', () => { if (form) { form.hidden = false; form.scrollIntoView({ behavior: 'smooth' }); } });
+    document.querySelector('[data-evaluation-close]')?.addEventListener('click', () => { if (form) form.hidden = true; });
+  </script>
+</AppLayout>
+
+<style>
+  .evaluation-form, .evaluation-list { margin-top: 1rem; }
+  .evaluation-fields { display: grid; gap: 1rem; }
+  .form-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; }
+  .compact { width: auto; }
+  @media (min-width: 760px) { .evaluation-fields { grid-template-columns: repeat(3, 1fr); } .wide { grid-column: 1 / -1; } }
+</style>
