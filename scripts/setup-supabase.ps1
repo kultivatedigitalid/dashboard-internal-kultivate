@@ -1,6 +1,6 @@
 $ErrorActionPreference = 'Stop'
 Write-Host ''
-Write-Host 'Hubungkan Internal Work Dashboard ke Supabase' -ForegroundColor Green
+Write-Host 'Hubungkan Kultivate Digital ID ke Supabase' -ForegroundColor Green
 Write-Host 'Nilai disimpan lokal di .env.local dan tidak akan masuk Git.' -ForegroundColor DarkGray
 Write-Host ''
 

@@ -1,0 +1,45 @@
+---
+import { actions } from 'astro:actions';
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Logo from '@/components/Logo.astro';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+if (!Astro.locals.otpRequired) return Astro.redirect(Astro.locals.role === 'admin' ? '/admin' : '/app');
+
+const verifyResult = Astro.getActionResult(actions.verifyFirstLoginOtp);
+if (verifyResult && !verifyResult.error) return Astro.redirect(verifyResult.data.redirectTo);
+const resendResult = Astro.getActionResult(actions.resendFirstLoginOtp);
+const result = verifyResult ?? resendResult;
+---
+
+<BaseLayout title="Verifikasi OTP" bodyClass="auth-body">
+  <main class="otp-shell">
+    <section class="otp-card">
+      <Logo />
+      <div>
+        <span class="eyebrow">Login pertama</span>
+        <h1>Verifikasi email Anda</h1>
+        <p>Kode OTP 6 digit telah dikirim ke <strong>{user.email}</strong>. Kode berlaku 10 menit dan maksimal 5 percobaan.</p>
+      </div>
+      {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+      {result && !result.error && 'message' in result.data && <div class="alert success" role="status">{result.data.message}</div>}
+      <form method="POST" action={actions.verifyFirstLoginOtp} class="otp-form">
+        <label class="field">Kode OTP
+          <input class="input otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required autofocus />
+        </label>
+        <button class="button" type="submit">Verifikasi dan masuk</button>
+      </form>
+      <form method="POST" action={actions.resendFirstLoginOtp}>
+        <button class="button secondary resend" type="submit">Kirim ulang kode</button>
+      </form>
+      <form method="POST" action={actions.logout}>
+        <button class="text-button" type="submit">Keluar dan gunakan akun lain</button>
+      </form>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .auth-body{background:var(--surface-soft)}.otp-shell{min-height:100dvh;display:grid;place-items:center;padding:1.25rem}.otp-card{width:min(100%,460px);display:grid;gap:1.35rem;padding:clamp(1.4rem,4vw,2.4rem);background:white;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg)}.eyebrow{color:var(--primary);font-size:.75rem;font-weight:750}.otp-card h1{margin-top:.35rem;font-size:1.8rem}.otp-card p{margin-top:.55rem;color:var(--muted)}.otp-form{display:grid;gap:1rem}.otp-input{font-size:1.45rem;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}.resend{width:100%}.text-button{width:100%;border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:.78rem}
+</style>

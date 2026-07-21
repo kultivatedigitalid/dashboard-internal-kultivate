@@ -31,6 +31,7 @@ const employeeNavigation = [
 const adminNavigation = [
   { href: '/admin', label: 'Dashboard', glyph: 'âŒ‚' },
   { href: '/admin/employees', label: 'Karyawan', glyph: 'â—Ž' },
+  { href: '/admin/admins', label: 'Tambah Admin', glyph: '+' },
   { href: '/admin/tasks', label: 'Tugas', glyph: 'âœ“' },
   { href: '/admin/targets', label: 'Target', glyph: 'â†—' },
   { href: '/admin/attendance', label: 'Absensi', glyph: 'â—·' },
@@ -55,7 +56,7 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
 
       <div class="workspace-switcher">
         <span>Ruang kerja</span>
-        <strong>Tim Internal</strong>
+        <strong>Kultivate Digital ID</strong>
         <small>{role === 'admin' ? 'Akses administrator' : user.employeeCode ?? 'Karyawan'}</small>
       </div>
 

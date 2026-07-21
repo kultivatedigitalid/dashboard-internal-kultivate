@@ -1,7 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServerClient, hasSupabaseConfig } from '@/lib/supabase/server';
 
-const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/auth/callback'];
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/verify-otp', '/auth/callback'];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = context.url.pathname;
@@ -9,6 +9,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   context.locals.user = null;
   context.locals.role = null;
+  context.locals.otpRequired = false;
 
   if (!hasSupabaseConfig()) {
     if (isPublic) return next();
@@ -21,7 +22,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (user && !authError) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('email, full_name, employee_code, role, is_active')
+      .select('email, full_name, employee_code, role, is_active, first_login_verified_at')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -29,6 +30,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
     if (profile && profile.is_active && profile.role === role) {
       const fullName = profile.full_name || user.user_metadata.full_name || user.email?.split('@')[0] || 'Pengguna';
       context.locals.role = role;
+      context.locals.otpRequired = !profile.first_login_verified_at;
       context.locals.user = {
         id: user.id,
         email: profile.email || user.email || '',
@@ -45,13 +47,10 @@ export const onRequest = defineMiddleware(async (context, next) => {
 
   if (isPublic) return next();
   if (!context.locals.user) return context.redirect('/login');
+  if (context.locals.otpRequired) return context.redirect('/verify-otp');
 
-  if (pathname.startsWith('/admin') && context.locals.role !== 'admin') {
-    return context.redirect('/app');
-  }
-  if (pathname.startsWith('/app') && context.locals.role !== 'employee') {
-    return context.redirect('/admin');
-  }
+  if (pathname.startsWith('/admin') && context.locals.role !== 'admin') return context.redirect('/app');
+  if (pathname.startsWith('/app') && context.locals.role !== 'employee') return context.redirect('/admin');
 
   return next();
 });

@@ -1,6 +1,6 @@
-# Internal Work Dashboard
+# Kultivate Digital ID
 
-Dashboard internal Astro SSR dengan Supabase Auth, Postgres, RLS, dan private Storage. Fitur mencakup absensi, target jam, tugas/checklist, progres dan bukti kerja, laporan mingguan, tunjangan, evaluasi, serta administrasi karyawan.
+Dashboard Kultivate Digital ID Astro SSR dengan Supabase Auth, Postgres, RLS, dan private Storage. Fitur mencakup absensi, target jam, tugas/checklist, progres dan bukti kerja, laporan mingguan, tunjangan, evaluasi, serta administrasi karyawan.
 
 ## Persyaratan
 
@@ -76,9 +76,9 @@ Mengaktifkan Auto RLS saat membuat project boleh dan disarankan. Migration tetap
 
 ## Route
 
-- Publik: `/login`, `/forgot-password`, `/reset-password`, `/auth/callback`
+- Publik: `/login`, `/forgot-password`, `/reset-password`, `/verify-otp`, `/auth/callback`
 - Karyawan: `/app`, absensi, tugas, laporan, tunjangan, profil
-- Admin: `/admin`, karyawan, tugas, target, absensi, laporan, tunjangan, evaluasi, pengaturan
+- Admin: `/admin`, karyawan, tambah admin, tugas, target, absensi, laporan, tunjangan, evaluasi, pengaturan
 
 ## Verifikasi
 
@@ -90,3 +90,20 @@ npx supabase migration list --linked
 ```
 
 Setelah migration diterapkan, jalankan Security dan Performance Advisors di Supabase serta uji login admin/karyawan, redirect lintas-role, kondisi kosong, semua mutasi, review, dan logout.
+
+## OTP login pertama dan provisioning akun
+
+- OTP email terdiri dari 6 digit, berlaku 10 menit, maksimal 5 percobaan, dan dapat dikirim ulang setelah 60 detik.
+- Project hosted baru memerlukan custom SMTP agar template OTP bermerek dapat dikirim ke Gmail non-member.
+- Pasang isi `supabase/templates/magic-link.html` sebagai template **Magic Link / OTP** pada Authentication > Email Templates.
+- Jangan menyimpan password akun di Git. Jalankan provisioning dengan empat environment variable berikut setelah migration diterapkan:
+
+```powershell
+$env:JOSHUA_PASSWORD='<password Joshua>'
+$env:AIRIN_PASSWORD='<password Airin>'
+$env:DAVIS_PASSWORD='<password Davis>'
+$env:ADMIN_PASSWORD='<password Admin>'
+npm run provision:accounts
+```
+
+Hapus environment variable password dari terminal setelah provisioning. Semua akun dibuat di Supabase Auth dan `public.profiles`, lalu diwajibkan melakukan OTP pada login pertama.

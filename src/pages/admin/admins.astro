@@ -1,0 +1,38 @@
+---
+import { actions } from 'astro:actions';
+import AppLayout from '@/layouts/AppLayout.astro';
+import StatusBadge from '@/components/StatusBadge.astro';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData } from '@/lib/dashboard-data';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.createAdmin);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const admins = (data?.profiles ?? []).filter((profile) => profile.role === 'admin');
+---
+
+<AppLayout title="Manajemen Admin" heading="Manajemen Admin" description="Buat dan pantau akun administrator Kultivate Digital ID." role="admin" user={user} activePath="/admin/admins">
+  {loadError && <div class="alert danger">{loadError}</div>}
+  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+  {result && !result.error && <div class="alert success" role="status">{result.data.message}</div>}
+
+  <section class="panel admin-create">
+    <div class="panel-header"><div><h2>Tambah Admin</h2><p>Admin baru menerima email undangan, lalu wajib menyelesaikan OTP pada login pertama.</p></div></div>
+    <form method="POST" action={actions.createAdmin} class="panel-body admin-form" onsubmit="return confirm('Buat akun admin baru dengan akses penuh?')">
+      <label class="field">Nama lengkap<input class="input" name="fullName" minlength="2" maxlength="120" required /></label>
+      <label class="field">Alamat Gmail<input class="input" name="email" type="email" pattern="[a-zA-Z0-9._%+\-]+@gmail\.com" placeholder="nama@gmail.com" required /></label>
+      <input type="hidden" name="confirmation" value="confirmed" />
+      <button class="button" type="submit">Konfirmasi dan buat admin</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-header"><div><h2>Administrator</h2><p>{admins.length} akun tersimpan di database.</p></div></div>
+    {admins.length ? <div class="admin-list">{admins.map((admin) => <article><span class="avatar">{admin.full_name.split(' ').slice(0,2).map((part) => part[0]).join('')}</span><div><strong>{admin.full_name}</strong><p>{admin.email}</p></div><StatusBadge label={admin.is_active ? 'Aktif' : 'Nonaktif'} tone={admin.is_active ? 'success' : 'danger'} /></article>)}</div> : <EmptyState title="Belum ada admin" description="Buat akun administrator pertama setelah bootstrap." />}
+  </section>
+</AppLayout>
+
+<style>.admin-create{margin-bottom:1rem}.admin-form{display:grid;gap:.8rem}.admin-list{display:grid;gap:1px;background:var(--line)}.admin-list article{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:.8rem;padding:1rem;background:white}.admin-list p{color:var(--muted);font-size:.78rem}@media(min-width:760px){.admin-form{grid-template-columns:1fr 1fr auto;align-items:end}}</style>

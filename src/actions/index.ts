@@ -41,6 +41,11 @@ function dbError(error: { message: string } | null, fallback: string): never {
     REPORT_NOT_REVIEWABLE: 'Laporan ini sudah direview atau belum dikirim.',
     ALLOWANCE_NOT_REVIEWABLE: 'Pengajuan ini sudah direview atau belum dikirim.',
     INVALID_AMOUNT: 'Minimal salah satu nominal tunjangan harus lebih dari nol.',
+    OTP_RESEND_WAIT: 'Kode baru dapat dikirim setelah 60 detik.',
+    OTP_NOT_REQUESTED: 'Belum ada kode OTP aktif. Kirim ulang kode terlebih dahulu.',
+    OTP_EXPIRED: 'Kode OTP sudah kedaluwarsa. Kirim ulang untuk mendapatkan kode baru.',
+    OTP_ATTEMPTS_EXCEEDED: 'Batas 5 percobaan tercapai. Kirim ulang untuk mendapatkan kode baru.',
+    OTP_NOT_REQUIRED: 'Akun ini tidak memerlukan verifikasi OTP pertama.',
   };
   const match = Object.entries(known).find(([code]) => message.includes(code));
   throw new ActionError({ code: 'BAD_REQUEST', message: match?.[1] ?? fallback });
@@ -62,7 +67,11 @@ export const server = {
       }
 
       const role = data.user.app_metadata.app_role === 'admin' ? 'admin' : 'employee';
-      const { data: profile } = await supabase.from('profiles').select('is_active, role').eq('id', data.user.id).maybeSingle();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('is_active, role, first_login_verified_at')
+        .eq('id', data.user.id)
+        .maybeSingle();
       if (!profile || !profile.is_active || profile.role !== role) {
         await supabase.auth.signOut();
         throw new ActionError({
@@ -71,7 +80,74 @@ export const server = {
         });
       }
 
+      if (!profile.first_login_verified_at) {
+        const { error: challengeError } = await supabase.rpc('begin_first_login_otp');
+        if (challengeError && !challengeError.message.includes('OTP_RESEND_WAIT')) {
+          dbError(challengeError, 'Verifikasi OTP tidak dapat dimulai.');
+        }
+        if (!challengeError) {
+          const { error: otpError } = await supabase.auth.signInWithOtp({
+            email: data.user.email ?? email,
+            options: { shouldCreateUser: false },
+          });
+          if (otpError) {
+            throw new ActionError({ code: 'BAD_REQUEST', message: 'Kode OTP tidak dapat dikirim. Periksa konfigurasi SMTP.' });
+          }
+        }
+        return { redirectTo: '/verify-otp' };
+      }
+
       return { redirectTo: role === 'admin' ? '/admin' : '/app' };
+    },
+  }),
+
+  verifyFirstLoginOtp: defineAction({
+    accept: 'form',
+    input: z.object({ code: z.string().regex(/^\d{6}$/, 'Masukkan kode OTP 6 digit.') }),
+    handler: async ({ code }, context) => {
+      requireConfigured();
+      const user = requireUser(context);
+      if (!hasSupabaseSecret()) {
+        throw new ActionError({ code: 'PRECONDITION_FAILED', message: 'SUPABASE_SECRET_KEY wajib untuk menyelesaikan verifikasi OTP.' });
+      }
+      const supabase = createSupabaseServerClient(context);
+      const { data: remainingData, error: attemptError } = await supabase.rpc('consume_first_login_otp_attempt');
+      if (attemptError) dbError(attemptError, 'Kode OTP tidak dapat diverifikasi.');
+      const remaining = Number(remainingData ?? 0);
+      const { data, error } = await supabase.auth.verifyOtp({ email: user.email, token: code, type: 'email' });
+      if (error || !data.user || data.user.id !== user.id) {
+        throw new ActionError({
+          code: 'BAD_REQUEST',
+          message: remaining > 0 ? `Kode OTP tidak valid. Tersisa ${remaining} percobaan.` : 'Kode OTP tidak valid. Kirim ulang untuk mencoba lagi.',
+        });
+      }
+      const service = createSupabaseServiceClient();
+      const { error: profileError } = await service
+        .from('profiles')
+        .update({ first_login_verified_at: new Date().toISOString() })
+        .eq('id', user.id)
+        .is('first_login_verified_at', null);
+      if (profileError) dbError(profileError, 'Status verifikasi akun tidak dapat disimpan.');
+      return { redirectTo: context.locals.role === 'admin' ? '/admin' : '/app' };
+    },
+  }),
+
+  resendFirstLoginOtp: defineAction({
+    accept: 'form',
+    handler: async (_, context) => {
+      requireConfigured();
+      const user = requireUser(context);
+      const supabase = createSupabaseServerClient(context);
+      const { error: challengeError } = await supabase.rpc('begin_first_login_otp');
+      if (challengeError) dbError(challengeError, 'Kode OTP baru tidak dapat disiapkan.');
+      const { error } = await supabase.auth.signInWithOtp({
+        email: user.email,
+        options: { shouldCreateUser: false },
+      });
+      if (error) {
+        throw new ActionError({ code: 'BAD_REQUEST', message: 'Kode OTP tidak dapat dikirim. Periksa konfigurasi SMTP.' });
+      }
+      return { message: 'Kode OTP baru telah dikirim. Kode berlaku selama 10 menit.' };
     },
   }),
 
@@ -502,6 +578,64 @@ export const server = {
       });
       if (roleError) dbError(roleError, 'Role pengguna tidak dapat ditetapkan.');
       return { message: 'Undangan karyawan berhasil dikirim.' };
+    },
+  }),
+
+  createAdmin: defineAction({
+    accept: 'form',
+    input: z.object({
+      fullName: z.string().trim().min(2, 'Nama minimal 2 karakter.').max(120),
+      email: z.string().trim().email('Masukkan email yang valid.').refine(
+        (value) => /^[a-z0-9._%+-]+@gmail\.com$/i.test(value),
+        'Alamat admin harus menggunakan Gmail.',
+      ),
+      confirmation: z.literal('confirmed'),
+    }),
+    handler: async (input, context) => {
+      requireConfigured();
+      requireUser(context, 'admin');
+      if (!hasSupabaseSecret()) {
+        throw new ActionError({ code: 'PRECONDITION_FAILED', message: 'SUPABASE_SECRET_KEY wajib untuk membuat admin.' });
+      }
+      const service = createSupabaseServiceClient();
+      const email = input.email.toLowerCase();
+      const { data: duplicate, error: duplicateError } = await service
+        .from('profiles')
+        .select('id')
+        .ilike('email', email)
+        .maybeSingle();
+      if (duplicateError) dbError(duplicateError, 'Email tidak dapat diperiksa.');
+      if (duplicate) {
+        throw new ActionError({ code: 'CONFLICT', message: 'Email tersebut sudah digunakan oleh akun lain.' });
+      }
+
+      const siteUrl = import.meta.env.PUBLIC_SITE_URL || new URL(context.request.url).origin;
+      const { data, error } = await service.auth.admin.inviteUserByEmail(email, {
+        redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
+        data: { full_name: input.fullName },
+      });
+      if (error || !data.user) {
+        const exists = error?.message.toLowerCase().includes('already') ?? false;
+        throw new ActionError({
+          code: exists ? 'CONFLICT' : 'BAD_REQUEST',
+          message: exists ? 'Email tersebut sudah digunakan oleh akun lain.' : 'Undangan admin tidak dapat dikirim.',
+        });
+      }
+
+      const { error: authError } = await service.auth.admin.updateUserById(data.user.id, {
+        app_metadata: { app_role: 'admin' },
+        user_metadata: { full_name: input.fullName },
+      });
+      if (authError) dbError(authError, 'Role autentikasi admin tidak dapat ditetapkan.');
+      const { error: profileError } = await service.from('profiles').update({
+        email,
+        full_name: input.fullName,
+        role: 'admin',
+        is_active: true,
+        first_login_verified_at: null,
+      }).eq('id', data.user.id);
+      if (profileError) dbError(profileError, 'Profil admin tidak dapat disimpan.');
+      return { message: `Undangan admin dikirim ke ${email}.` };
     },
   }),
 

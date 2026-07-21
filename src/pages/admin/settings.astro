@@ -22,7 +22,7 @@ const settings = data?.settings;
     <form method="POST" action={actions.updateWorkspaceSettings} class="panel">
       <div class="panel-header"><div><h2>Workspace dan target</h2><p>Nilai default untuk seluruh tim.</p></div></div>
       <div class="panel-body stack">
-        <label class="field">Nama workspace<input class="input" name="workspaceName" value={settings?.workspace_name ?? 'Tim Internal'} required /></label>
+        <label class="field">Nama workspace<input class="input" name="workspaceName" value={settings?.workspace_name ?? 'Kultivate Digital ID'} required /></label>
         <label class="field">Zona waktu<select class="select" name="timezone"><option value="Asia/Jakarta">Asia/Jakarta</option></select></label>
         <div class="three">
           <label class="field">Target mingguan<input class="input" name="weeklyTarget" type="number" min="0" step=".5" value={settings?.weekly_target_hours ?? 40} /></label>

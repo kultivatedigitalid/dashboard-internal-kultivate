@@ -4,13 +4,14 @@ import BaseLayout from '@/layouts/BaseLayout.astro';
 import Logo from '@/components/Logo.astro';
 
 if (Astro.locals.user) {
-  return Astro.redirect(Astro.locals.role === 'admin' ? '/admin' : '/app');
+  const destination = Astro.locals.otpRequired
+    ? '/verify-otp'
+    : Astro.locals.role === 'admin' ? '/admin' : '/app';
+  return Astro.redirect(destination);
 }
 
 const result = Astro.getActionResult(actions.login);
-if (result && !result.error) {
-  return Astro.redirect(result.data.redirectTo);
-}
+if (result && !result.error) return Astro.redirect(result.data.redirectTo);
 const inputErrors = isInputError(result?.error) ? result.error.fields : {};
 const queryNotice =
   Astro.url.searchParams.get('password') === 'updated'
@@ -24,85 +25,44 @@ const queryNotice =
 
 <BaseLayout title="Masuk" bodyClass="auth-body">
   <main class="auth-shell">
-    <section class="auth-story" aria-label="Tentang dashboard">
-      <div class="story-inner">
-        <Logo inverse />
-        <div class="story-copy">
-          <span class="story-status"><i></i> Ruang kerja internal</span>
-          <h1>Setiap progres punya tempat yang jelas.</h1>
-          <p>Pantau jam kerja, tugas, laporan, dan evaluasi tim tanpa berpindah aplikasi.</p>
-        </div>
-        <div class="story-proof">
-          <div><strong>600</strong><span>jam target utama</span></div>
-          <div><strong>4</strong><span>anggota dalam satu alur</span></div>
-        </div>
+    <section class="auth-story" aria-label="Tentang Kultivate Digital ID">
+      <Logo inverse />
+      <div>
+        <span class="story-status">Ruang kerja Kultivate Digital ID</span>
+        <h1>Setiap progres punya tempat yang jelas.</h1>
+        <p>Pantau jam kerja, tugas, laporan, dan evaluasi tim tanpa berpindah aplikasi.</p>
       </div>
+      <small>Kultivate Digital ID · Asia/Jakarta</small>
     </section>
 
     <section class="auth-form-wrap">
       <div class="mobile-logo"><Logo /></div>
-      <div class="auth-form-card">
-        <div class="auth-heading">
+      <div class="auth-card">
+        <header>
           <span>Selamat datang kembali</span>
           <h2>Masuk ke dashboard</h2>
           <p>Gunakan akun yang telah dibuat oleh administrator.</p>
-        </div>
-
+        </header>
         {queryNotice && <div class:list={['alert', queryNotice.tone]} role="status">{queryNotice.message}</div>}
         {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
-
-        <form method="POST" action={actions.login} class="auth-form">
-          <div class="field">
-            <label for="email">Email</label>
-            <input class="input" id="email" name="email" type="email" autocomplete="email" placeholder="nama@perusahaan.com" required aria-describedby={inputErrors.email ? 'email-error' : undefined} />
+        <form method="POST" action={actions.login}>
+          <label class="field">Email
+            <input class="input" name="email" type="email" autocomplete="email" placeholder="nama@gmail.com" required aria-describedby={inputErrors.email ? 'email-error' : undefined} />
             {inputErrors.email && <span class="field-error" id="email-error">{inputErrors.email.join(', ')}</span>}
-          </div>
-          <div class="field">
-            <div class="field-row"><label for="password">Password</label><a href="/forgot-password">Lupa password?</a></div>
-            <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter" minlength="8" required aria-describedby={inputErrors.password ? 'password-error' : undefined} />
+          </label>
+          <label class="field">Password
+            <input class="input" name="password" type="password" autocomplete="current-password" minlength="8" required aria-describedby={inputErrors.password ? 'password-error' : undefined} />
             {inputErrors.password && <span class="field-error" id="password-error">{inputErrors.password.join(', ')}</span>}
-          </div>
-          <button class="button submit-button" type="submit">Masuk ke dashboard <span aria-hidden="true">â†’</span></button>
+          </label>
+          <div class="form-meta"><a href="/forgot-password">Lupa password?</a></div>
+          <button class="button" type="submit">Masuk ke dashboard</button>
         </form>
-
         <p class="auth-note">Belum memiliki akun? Hubungi administrator.</p>
       </div>
-      <footer>Internal Work Dashboard Â· Asia/Jakarta</footer>
     </section>
   </main>
 </BaseLayout>
 
 <style is:global>
-  .auth-body { background: white; }
-  .auth-shell { min-height: 100dvh; display: grid; }
-  .auth-story { display: none; background: var(--sidebar); color: white; }
-  .story-inner { min-height: 100dvh; display: flex; flex-direction: column; justify-content: space-between; padding: 2rem clamp(2rem, 5vw, 5rem); }
-  .story-copy { max-width: 600px; }
-  .story-status { display: inline-flex; align-items: center; gap: .45rem; margin-bottom: 1.5rem; color: var(--sidebar-muted); font-size: .78rem; font-weight: 650; }
-  .story-status i { width: 8px; height: 8px; border-radius: 50%; background: oklch(.72 .14 145); box-shadow: 0 0 0 5px oklch(.72 .14 145 / .12); }
-  .story-copy h1 { max-width: 13ch; font-size: clamp(2.7rem, 5vw, 5.2rem); line-height: .98; letter-spacing: -.04em; }
-  .story-copy p { max-width: 50ch; margin-top: 1.5rem; color: var(--sidebar-muted); font-size: 1rem; }
-  .story-proof { display: flex; gap: clamp(2rem, 7vw, 5rem); padding-top: 1.5rem; border-top: 1px solid oklch(1 0 0 / .14); }
-  .story-proof div { display: grid; }
-  .story-proof strong { font-size: 1.6rem; font-variant-numeric: tabular-nums; }
-  .story-proof span { color: var(--sidebar-muted); font-size: .7rem; }
-  .auth-form-wrap { min-height: 100dvh; display: flex; flex-direction: column; padding: 1.25rem; }
-  .mobile-logo { padding: .5rem 0 2rem; }
-  .auth-form-card { width: min(100%, 430px); margin: auto; }
-  .auth-heading { margin-bottom: 1.7rem; }
-  .auth-heading > span { color: var(--primary); font-size: .78rem; font-weight: 750; }
-  .auth-heading h2 { margin-top: .35rem; font-size: 1.85rem; }
-  .auth-heading p { margin-top: .5rem; color: var(--muted); }
-  .auth-form { display: grid; gap: 1.15rem; margin-top: 1rem; }
-  .field-row { display: flex; justify-content: space-between; gap: 1rem; }
-  .field-row a { color: var(--primary); font-size: .78rem; font-weight: 680; }
-  .submit-button { width: 100%; margin-top: .2rem; }
-  .demo-access { display: grid; gap: .65rem; margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
-  .demo-access > span { color: var(--muted); font-size: .73rem; font-weight: 680; text-align: center; }
-  .demo-access > div { display: grid; grid-template-columns: 1fr; gap: .5rem; }
-  .demo-access .button { font-size: .78rem; }
-  .auth-note { margin-top: 1.5rem; color: var(--muted); font-size: .78rem; text-align: center; }
-  .auth-form-wrap footer { padding-top: 2rem; color: var(--muted); font-size: .7rem; text-align: center; }
-  @media (min-width: 560px) { .demo-access > div { grid-template-columns: 1fr 1fr; } }
-  @media (min-width: 960px) { .auth-shell { grid-template-columns: minmax(0, 1.15fr) minmax(420px, .85fr); } .auth-story { display: block; } .mobile-logo { display: none; } .auth-form-wrap { padding: 2rem clamp(2rem, 5vw, 4.5rem); } }
+  .auth-body{background:white}.auth-shell{min-height:100dvh;display:grid}.auth-story{display:none;background:var(--sidebar);color:white;padding:clamp(2rem,5vw,5rem);flex-direction:column;justify-content:space-between}.auth-story>div{max-width:650px}.story-status{display:block;margin-bottom:1.2rem;color:var(--sidebar-muted);font-size:.78rem;font-weight:700}.auth-story h1{max-width:13ch;font-size:clamp(3rem,5vw,5.2rem);line-height:.98;letter-spacing:-.04em}.auth-story p{max-width:50ch;margin-top:1.4rem;color:var(--sidebar-muted)}.auth-form-wrap{min-height:100dvh;display:flex;flex-direction:column;padding:1.25rem}.mobile-logo{padding:.5rem 0 2rem}.auth-card{width:min(100%,430px);margin:auto}.auth-card header{margin-bottom:1.6rem}.auth-card header>span{color:var(--primary);font-size:.78rem;font-weight:750}.auth-card h2{margin-top:.35rem;font-size:1.85rem}.auth-card header p,.auth-note{color:var(--muted)}.auth-card form{display:grid;gap:1rem;margin-top:1rem}.form-meta{text-align:right}.form-meta a{color:var(--primary);font-size:.78rem;font-weight:680}.auth-note{margin-top:1.5rem;font-size:.78rem;text-align:center}@media(min-width:960px){.auth-shell{grid-template-columns:minmax(0,1.15fr) minmax(420px,.85fr)}.auth-story{display:flex}.mobile-logo{display:none}.auth-form-wrap{padding:2rem clamp(2rem,5vw,4.5rem)}}
 </style>

@@ -22,7 +22,7 @@ create table public.profiles (
 
 create table public.workspace_settings (
   id boolean primary key default true check (id),
-  workspace_name text not null default 'Tim Internal',
+  workspace_name text not null default 'Kultivate Digital ID',
   timezone text not null default 'Asia/Jakarta',
   weekly_target_hours numeric(8,2) not null default 40 check (weekly_target_hours >= 0),
   monthly_target_hours numeric(8,2) not null default 160 check (monthly_target_hours >= 0),

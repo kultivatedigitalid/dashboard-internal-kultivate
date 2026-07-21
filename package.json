@@ -1,5 +1,5 @@
 {
-  "name": "internal-work-dashboard",
+  "name": "kultivate-digital-id-dashboard",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "setup:supabase": "powershell -ExecutionPolicy Bypass -File scripts/setup-supabase.ps1",
-    "check:migration": "node scripts/validate-migration.mjs"
+    "check:migration": "node scripts/validate-migration.mjs",
+    "provision:accounts": "node scripts/provision-required-accounts.mjs"
   },
   "dependencies": {
     "@astrojs/vercel": "11.0.3",

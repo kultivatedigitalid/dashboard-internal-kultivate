@@ -3,9 +3,9 @@ interface Props { compact?: boolean; inverse?: boolean }
 const { compact = false, inverse = false } = Astro.props;
 ---
 
-<a class:list={['brand', { compact, inverse }]} href="/" aria-label="Internal Work Dashboard">
+<a class:list={['brand', { compact, inverse }]} href="/" aria-label="Kultivate Digital ID">
   <span class="brand-mark" aria-hidden="true"><i></i><i></i></span>
-  {!compact && <span class="brand-copy"><strong>Internal</strong><small>Work Dashboard</small></span>}
+  {!compact && <span class="brand-copy"><strong>Kultivate</strong><small>Digital ID</small></span>}
 </a>
 
 <style>

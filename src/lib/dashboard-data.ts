@@ -11,6 +11,7 @@ export interface ProfileRow {
   is_active: boolean;
   portfolio_url: string | null;
   joined_at: string;
+  first_login_verified_at: string | null;
 }
 export interface SettingsRow {
   workspace_name: string;
@@ -123,7 +124,7 @@ export interface DashboardData {
 }
 
 const defaults: SettingsRow = {
-  workspace_name: 'Tim Internal',
+  workspace_name: 'Kultivate Digital ID',
   timezone: 'Asia/Jakarta',
   weekly_target_hours: 40,
   monthly_target_hours: 160,
@@ -144,7 +145,7 @@ export async function loadDashboardData(context: Pick<APIContext, 'request' | 'c
     allowancesResult,
     evaluationsResult,
   ] = await Promise.all([
-    supabase.from('profiles').select('id,email,full_name,employee_code,role,is_active,portfolio_url,joined_at').order('full_name'),
+    supabase.from('profiles').select('id,email,full_name,employee_code,role,is_active,portfolio_url,joined_at,first_login_verified_at').order('full_name'),
     supabase.from('workspace_settings').select('workspace_name,timezone,weekly_target_hours,monthly_target_hours,overall_target_hours').eq('id', true).maybeSingle(),
     supabase.from('targets').select('id,employee_id,target_type,target_hours,period_start,period_end,is_active').eq('is_active', true),
     supabase.from('work_sessions').select('id,employee_id,work_date,check_in,check_out,break_minutes,work_mode,activity_note,status,review_note').order('work_date', { ascending: false }).limit(500),

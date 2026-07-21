@@ -1,14 +1,22 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import Module from 'pg-query-emscripten';
 
-const migrationPath = new URL('../supabase/migrations/20260721031135_initial_dashboard_schema.sql', import.meta.url);
-const sql = fs.readFileSync(migrationPath, 'utf8');
+const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
+const migrationFiles = fs.readdirSync(migrationsDir)
+  .filter((file) => file.endsWith('.sql'))
+  .sort();
 const parser = await new Module();
-const result = parser.parse(sql);
+let sql = '';
 
-if (result.error) {
-  console.error(result.error);
-  process.exit(1);
+for (const file of migrationFiles) {
+  const migrationSql = fs.readFileSync(new URL(file, migrationsDir), 'utf8');
+  const result = parser.parse(migrationSql);
+  if (result.error) {
+    console.error(`${file}: ${result.error}`);
+    process.exit(1);
+  }
+  sql += `\n${migrationSql}`;
 }
 
 const requiredSecurityFragments = [
@@ -18,6 +26,10 @@ const requiredSecurityFragments = [
   'private.is_admin()',
   "bucket_id = 'work-evidence'",
   'revoke all on all tables in schema public from anon',
+  'private.login_otp_challenges',
+  'begin_first_login_otp',
+  'consume_first_login_otp_attempt',
+  'first_login_verified_at is not null',
 ];
 
 for (const fragment of requiredSecurityFragments) {
@@ -27,4 +39,4 @@ for (const fragment of requiredSecurityFragments) {
   }
 }
 
-console.log('Migration syntax and required security controls are valid.');
+console.log(`${migrationFiles.length} migrations have valid syntax and required security controls.`);
