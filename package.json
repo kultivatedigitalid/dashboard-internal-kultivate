@@ -13,14 +13,15 @@
     "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest",
-    "setup:supabase": "powershell -ExecutionPolicy Bypass -File scripts/setup-supabase.ps1"
+    "setup:supabase": "powershell -ExecutionPolicy Bypass -File scripts/setup-supabase.ps1",
+    "check:migration": "node scripts/validate-migration.mjs"
   },
   "dependencies": {
-    "@astrojs/vercel": "latest",
+    "@astrojs/vercel": "11.0.3",
     "@supabase/auth-js": "2.110.7",
     "@supabase/realtime-js": "2.110.7",
-    "@supabase/ssr": "latest",
-    "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "0.12.3",
+    "@supabase/supabase-js": "2.110.7",
     "astro": "7.1.1",
     "css-select": "5.2.2",
     "oniguruma-parser": "0.12.2",
@@ -29,7 +30,15 @@
   },
   "devDependencies": {
     "@astrojs/check": "0.9.9",
+    "@volar/language-service": "2.4.28",
+    "@volar/typescript": "2.4.28",
+    "pg-query-emscripten": "^5.1.0",
+    "supabase": "2.109.1",
     "typescript": "6.0.3",
-    "vitest": "latest"
+    "vitest": "4.1.10",
+    "vscode-languageserver-protocol": "3.17.5"
+  },
+  "overrides": {
+    "path-to-regexp": "6.3.0"
   }
 }

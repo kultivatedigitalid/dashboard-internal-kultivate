@@ -2,97 +2,61 @@
 import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import StatBlock from '@/components/StatBlock.astro';
-import { employeeUser } from '@/lib/demo-data';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData } from '@/lib/dashboard-data';
+import { formatDate, formatDateTime } from '@/lib/formatters';
+import { jakartaDate, netHours } from '@/lib/dates';
 
-const user = Astro.locals.user ?? employeeUser;
-const result = Astro.getActionResult(actions.checkIn);
-const history = [
-  { date: 'Jumat, 17 Jul', in: '08:06', out: '17:11', break: '60 mnt', total: '8j 5m', mode: 'Kantor', status: 'Disetujui' },
-  { date: 'Kamis, 16 Jul', in: '08:11', out: '17:02', break: '45 mnt', total: '8j 6m', mode: 'Remote', status: 'Disetujui' },
-  { date: 'Rabu, 15 Jul', in: '08:03', out: '16:54', break: '60 mnt', total: '7j 51m', mode: 'Kantor', status: 'Dikirim' },
-  { date: 'Selasa, 14 Jul', in: '08:17', out: '17:04', break: '60 mnt', total: '7j 47m', mode: 'Kantor', status: 'Ditolak' },
-];
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const checkInResult = Astro.getActionResult(actions.checkIn);
+const checkOutResult = Astro.getActionResult(actions.checkOut);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const sessions = data?.sessions ?? [];
+const today = sessions.find((row) => row.work_date === jakartaDate());
+const statusLabel = { draft: 'Aktif', submitted: 'Menunggu review', approved: 'Disetujui', rejected: 'Ditolak' };
 ---
 
-<AppLayout title="Absensi" heading="Absensi" description="Catat waktu kerja menggunakan waktu server dan tinjau riwayat Anda." role="employee" user={user} activePath="/app/attendance" isDemo={Astro.locals.isDemo}>
-  {result && !result.error && <div class="alert success" role="status">{result.data.message}</div>}
-  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+<AppLayout title="Absensi" heading="Absensi" description="Check-in, check-out, dan riwayat sesi kerja Anda." role="employee" user={user} activePath="/app/attendance">
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {checkInResult?.error && <div class="alert danger" role="alert">{checkInResult.error.message}</div>}
+  {checkInResult && !checkInResult.error && <div class="alert success">{checkInResult.data.message}</div>}
+  {checkOutResult?.error && <div class="alert danger" role="alert">{checkOutResult.error.message}</div>}
+  {checkOutResult && !checkOutResult.error && <div class="alert success">{checkOutResult.data.message}</div>}
 
-  <div class="attendance-layout">
-    <section class="clock-card">
-      <div class="clock-head"><div><span>Hari ini</span><h2>Senin, 20 Juli 2026</h2></div><StatusBadge label="Belum check-in" tone="warning" /></div>
-      <div class="live-clock" data-clock aria-live="off">--:--<small>:-- WIB</small></div>
-      <form method="POST" action={actions.checkIn} class="checkin-form">
-        <div class="field"><label for="workMode">Lokasi kerja</label><select class="select" id="workMode" name="workMode"><option value="office">Kantor</option><option value="remote">Remote</option></select></div>
-        <div class="field"><label for="notes">Rencana aktivitas <span>(opsional)</span></label><textarea class="textarea" id="notes" name="notes" maxlength="1000" placeholder="Contoh: Menyelesaikan integrasi halaman laporan"></textarea></div>
-        <button class="button checkin-button" type="submit">Check-in sekarang <span aria-hidden="true">→</span></button>
-      </form>
-      <p class="clock-note">Waktu check-in tidak dapat diedit manual dan hanya dapat dicatat sekali per hari.</p>
-    </section>
-
-    <aside class="attendance-side">
-      <section class="panel">
-        <div class="panel-header"><div><h2>Ringkasan Juli</h2><p>Hanya jam yang telah disetujui.</p></div></div>
-        <div class="summary-list">
-          <div><span>Hari kerja</span><strong>14 hari</strong></div>
-          <div><span>Total jam</span><strong>126 jam</strong></div>
-          <div><span>Rata-rata</span><strong>8,1 jam/hari</strong></div>
-          <div><span>Menunggu review</span><strong>1 catatan</strong></div>
-        </div>
-      </section>
-      <div class="alert warning">Satu absensi 14 Juli perlu diperbaiki. Baca catatan admin sebelum mengirim ulang.</div>
-    </aside>
-  </div>
-
-  <section class="metrics-grid attendance-metrics">
-    <StatBlock label="Minggu ini" value="31,5 jam" helper="Target 40 jam" trend="78%" />
-    <StatBlock label="Disetujui" value="3 hari" helper="Minggu berjalan" trend="24 jam" />
-    <StatBlock label="Menunggu review" value="1" helper="Dikirim 15 Juli" trend="Diperiksa" tone="warning" />
-  </section>
-
-  <section class="panel history-panel">
-    <div class="panel-header"><div><h2>Riwayat absensi</h2><p>Data ditampilkan dalam zona waktu Asia/Jakarta.</p></div><div class="cluster"><select class="select compact" aria-label="Filter bulan"><option>Juli 2026</option><option>Juni 2026</option></select></div></div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>Tanggal</th><th>Check-in</th><th>Check-out</th><th>Istirahat</th><th>Total</th><th>Lokasi</th><th>Status</th></tr></thead>
-        <tbody>{history.map((item) => <tr><td><strong>{item.date}</strong></td><td>{item.in}</td><td>{item.out}</td><td>{item.break}</td><td>{item.total}</td><td>{item.mode}</td><td><StatusBadge label={item.status} tone={item.status === 'Disetujui' ? 'success' : item.status === 'Ditolak' ? 'danger' : 'info'} /></td></tr>)}</tbody>
-      </table>
+  <section class="panel attendance-action">
+    <div>
+      <span>Hari ini · {formatDate(new Date())}</span>
+      <h2>{!today ? 'Belum check-in' : today.check_out ? 'Sesi kerja selesai' : 'Sesi kerja aktif'}</h2>
+      {today && <p>Check-in {formatDateTime(today.check_in)}{today.check_out ? ` · Check-out ${formatDateTime(today.check_out)}` : ''}</p>}
     </div>
+    {!today ? (
+      <form method="POST" action={actions.checkIn} class="stack">
+        <label class="field">Mode kerja<select class="select" name="workMode"><option value="office">Kantor</option><option value="remote">Remote</option></select></label>
+        <label class="field">Catatan awal<textarea class="textarea" name="notes" maxlength="1000"></textarea></label>
+        <button class="button" type="submit">Check-in sekarang</button>
+      </form>
+    ) : !today.check_out ? (
+      <form method="POST" action={actions.checkOut} class="stack">
+        <label class="field">Istirahat (menit)<input class="input" name="breakMinutes" type="number" min="0" max="1440" value="60" required /></label>
+        <label class="field">Catatan aktivitas<textarea class="textarea" name="notes" maxlength="1000" required>{today.activity_note ?? ''}</textarea></label>
+        <button class="button" type="submit">Check-out dan kirim review</button>
+      </form>
+    ) : <StatusBadge label={statusLabel[today.status]} tone={today.status === 'approved' ? 'success' : today.status === 'rejected' ? 'danger' : 'warning'} />}
   </section>
 
-  <script>
-    const clock = document.querySelector('[data-clock]');
-    const updateClock = () => {
-      if (!clock) return;
-      const parts = new Intl.DateTimeFormat('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).formatToParts(new Date());
-      const get = (type: string) => parts.find((part) => part.type === type)?.value ?? '00';
-      clock.innerHTML = `${get('hour')}:${get('minute')}<small>:${get('second')} WIB</small>`;
-    };
-    updateClock();
-    window.setInterval(updateClock, 1000);
-  </script>
+  <section class="panel history">
+    <div class="panel-header"><div><h2>Riwayat absensi</h2><p>Data terbaru ditampilkan lebih dahulu.</p></div></div>
+    {sessions.length ? <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Check-in</th><th>Check-out</th><th>Durasi</th><th>Mode</th><th>Status</th></tr></thead><tbody>{sessions.map((row) => <tr><td>{formatDate(row.work_date)}</td><td>{formatDateTime(row.check_in)}</td><td>{row.check_out ? formatDateTime(row.check_out) : '—'}</td><td>{netHours(row.check_in, row.check_out, row.break_minutes).toFixed(1)} jam</td><td>{row.work_mode}</td><td><StatusBadge label={statusLabel[row.status]} tone={row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'danger' : 'warning'} /></td></tr>)}</tbody></table></div> : <EmptyState title="Belum ada absensi" description="Lakukan check-in untuk memulai sesi pertama." />}
+  </section>
 </AppLayout>
 
 <style>
-  .attendance-layout { display: grid; gap: 1rem; margin-top: 1rem; }
-  .clock-card { padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid var(--line); border-radius: var(--radius-card); background: white; }
-  .clock-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-  .clock-head span:first-child { color: var(--muted); font-size: .72rem; }
-  .clock-head h2 { margin-top: .2rem; font-size: 1rem; }
-  .live-clock { margin: 2rem 0; font-size: clamp(3.4rem, 10vw, 5.6rem); line-height: .9; font-weight: 770; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-  .live-clock small { color: var(--muted); font-size: 1rem; letter-spacing: 0; }
-  .checkin-form { display: grid; gap: 1rem; }
-  .field label span { color: var(--muted); font-weight: 500; }
-  .checkin-button { width: 100%; }
-  .clock-note { margin-top: .75rem; color: var(--muted); font-size: .7rem; text-align: center; }
-  .attendance-side { display: grid; gap: 1rem; align-content: start; }
-  .summary-list { display: grid; padding: .4rem 1.2rem; }
-  .summary-list div { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 0; border-bottom: 1px solid var(--line); }
-  .summary-list div:last-child { border-bottom: 0; }
-  .summary-list span { color: var(--muted); font-size: .78rem; }
-  .summary-list strong { font-size: .8rem; }
-  .attendance-metrics, .history-panel { margin-top: 1rem; }
-  .compact { width: auto; min-height: 38px; padding-block: .4rem; font-size: .78rem; }
-  @media (min-width: 900px) { .attendance-layout { grid-template-columns: minmax(0, 1.45fr) minmax(280px, .55fr); } .checkin-form { grid-template-columns: .6fr 1.4fr; } .checkin-button, .clock-note { grid-column: 1 / -1; } }
+  .attendance-action { display:grid; gap:1.5rem; padding:1.25rem; }
+  .attendance-action p { margin-top:.5rem; color:var(--muted); }
+  .attendance-action form { max-width:520px; }
+  .history { margin-top:1rem; }
+  @media(min-width:900px){.attendance-action{grid-template-columns:1fr 1fr}}
 </style>

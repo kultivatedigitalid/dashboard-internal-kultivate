@@ -4,107 +4,78 @@ import ProgressBar from '@/components/ProgressBar.astro';
 import StatBlock from '@/components/StatBlock.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
 import TaskRow from '@/components/TaskRow.astro';
-import { employeeTasks, employeeUser } from '@/lib/demo-data';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
 import { calculateProgress, formatIDR } from '@/lib/formatters';
+import { currentWeekStart, jakartaDate, netHours } from '@/lib/dates';
 
-const user = Astro.locals.user ?? employeeUser;
-const approvedHours = 284;
-const targetHours = 600;
-const progress = calculateProgress(approvedHours, targetHours);
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const sessions = data?.sessions ?? [];
+const approvedHours = sessions.filter((row) => row.status === 'approved').reduce((sum, row) => sum + netHours(row.check_in, row.check_out, row.break_minutes), 0);
+const overallTarget = data?.targets.find((row) => row.employee_id === user.id && row.target_type === 'overall')?.target_hours ?? data?.settings.overall_target_hours ?? 600;
+const progress = calculateProgress(approvedHours, overallTarget);
+const today = sessions.find((row) => row.work_date === jakartaDate());
+const tasks = (data?.tasks ?? []).filter((row) => !['completed', 'archived', 'draft'].includes(row.status)).slice(0, 3);
+const report = data?.reports.find((row) => row.week_start === currentWeekStart());
+const allowanceTotal = (data?.allowances ?? []).filter((row) => row.status === 'approved').reduce((sum, row) => sum + row.transport_amount + row.meal_amount, 0);
+const latestEvaluation = data?.evaluations.find((row) => row.is_published && row.visibility === 'employee');
 ---
 
-<AppLayout title="Dashboard" heading={`Selamat siang, ${user.fullName.split(' ')[0]}`} description="Ringkasan aktivitas dan target kerja Anda pada minggu ini." role="employee" user={user} activePath="/app" isDemo={Astro.locals.isDemo}>
+<AppLayout title="Dashboard" heading={`Selamat datang, ${user.fullName.split(' ')[0]}`} description="Ringkasan aktivitas dan target kerja Anda." role="employee" user={user} activePath="/app">
   <a slot="actions" class="button secondary" href="/app/weekly-report">Buat laporan</a>
-  <a slot="actions" class="button" href="/app/attendance">Check-in sekarang</a>
+  <a slot="actions" class="button" href="/app/attendance">{today ? 'Buka absensi' : 'Check-in sekarang'}</a>
 
-  <div class="employee-dashboard">
-    <section class="progress-hero" aria-labelledby="overall-progress-title">
-      <div class="progress-copy">
-        <div class="section-title-row">
-          <div><span>Target keseluruhan</span><h2 id="overall-progress-title">Perjalanan menuju 600 jam</h2></div>
-          <StatusBadge label="Aktif" tone="success" />
-        </div>
-        <div class="progress-numbers">
-          <strong>{approvedHours}<small> jam disetujui</small></strong>
-          <span>{targetHours - approvedHours} jam lagi</span>
-        </div>
-        <ProgressBar value={progress} label="Progres target keseluruhan" showValue />
-        <p>Dengan ritme 40 jam per minggu, target diperkirakan selesai dalam <strong>8 minggu</strong>.</p>
-      </div>
-      <div class="today-panel">
-        <div class="today-head"><span>Absensi hari ini</span><StatusBadge label="Belum check-in" tone="warning" /></div>
-        <div class="today-time"><strong>--:--</strong><span>Senin, 20 Juli</span></div>
-        <a class="button" href="/app/attendance">Mulai hari kerja <span aria-hidden="true">→</span></a>
-        <small>Waktu check-in dicatat otomatis dari server.</small>
-      </div>
-    </section>
+  {loadError && <div class="alert danger" role="alert">Database tidak dapat dibaca. Pastikan migration sudah diterapkan. ({loadError})</div>}
 
-    <section class="metrics-grid" aria-label="Ringkasan periode">
-      <StatBlock label="Minggu ini" value="31,5 jam" helper="dari target 40 jam" trend="78%" />
-      <StatBlock label="Bulan ini" value="126 jam" helper="dari target 160 jam" trend="+8%" />
-      <StatBlock label="Tugas aktif" value="3" helper="1 mendekati deadline" trend="Perlu perhatian" tone="warning" />
-      <StatBlock label="Tunjangan Juli" value={formatIDR(475000)} helper="2 entry disetujui" trend="Terverifikasi" tone="success" />
-    </section>
-
-    <div class="dashboard-columns">
-      <section class="panel tasks-panel">
-        <div class="panel-header"><div><h2>Tugas prioritas</h2><p>Urut berdasarkan deadline terdekat.</p></div><a class="text-link" href="/app/tasks">Lihat semua</a></div>
-        <div>{employeeTasks.slice(0, 3).map((task) => <TaskRow task={task} />)}</div>
-      </section>
-
-      <aside class="side-stack">
-        <section class="panel report-card">
-          <div class="report-top"><span>Laporan minggu ke-29</span><StatusBadge label="Draft" tone="neutral" /></div>
-          <h2>Laporan minggu ini belum dikirim</h2>
-          <p>Lengkapi ringkasan aktivitas dan rencana berikutnya sebelum Jumat.</p>
-          <div class="report-progress"><span>3 dari 5 bagian terisi</span><strong>60%</strong></div>
-          <ProgressBar value={60} />
-          <a class="button secondary" href="/app/weekly-report">Lanjutkan laporan</a>
-        </section>
-
-        <section class="evaluation">
-          <div class="evaluation-mark" aria-hidden="true">“</div>
-          <div><span>Evaluasi terbaru · 17 Juli</span><p>Struktur laporan semakin jelas. Pertahankan dokumentasi kendala dan sertakan hasil yang dapat diukur.</p><a href="/app/profile#evaluations">Baca evaluasi lengkap →</a></div>
-        </section>
-      </aside>
+  <section class="progress-hero panel">
+    <div>
+      <span>Target keseluruhan</span>
+      <h2>{approvedHours.toFixed(1)} dari {overallTarget} jam</h2>
+      <ProgressBar value={progress} showValue />
     </div>
+    <div class="today">
+      <span>Absensi hari ini</span>
+      <StatusBadge label={!today ? 'Belum check-in' : today.check_out ? 'Selesai' : 'Sedang bekerja'} tone={!today ? 'warning' : 'success'} />
+      <strong>{today ? new Date(today.check_in).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong>
+      <a class="button" href="/app/attendance">{today ? 'Lihat absensi' : 'Mulai hari kerja'}</a>
+    </div>
+  </section>
+
+  <section class="metrics-grid">
+    <StatBlock label="Jam disetujui" value={`${approvedHours.toFixed(1)} jam`} helper={`target ${overallTarget} jam`} />
+    <StatBlock label="Tugas aktif" value={String(tasks.length)} helper="tugas yang perlu dikerjakan" />
+    <StatBlock label="Laporan minggu ini" value={report?.status ?? 'Belum dibuat'} helper={currentWeekStart()} />
+    <StatBlock label="Tunjangan disetujui" value={formatIDR(allowanceTotal)} helper="seluruh periode" />
+  </section>
+
+  <div class="dashboard-columns">
+    <section class="panel">
+      <div class="panel-header"><div><h2>Tugas prioritas</h2><p>Urut berdasarkan deadline.</p></div><a class="text-link" href="/app/tasks">Lihat semua</a></div>
+      {tasks.length && data ? tasks.map((task) => <TaskRow task={toDashboardTask(task, data)} />) : <EmptyState title="Belum ada tugas" description="Tugas dari admin akan muncul di sini." />}
+    </section>
+    <aside class="panel panel-body">
+      <h2>Laporan dan evaluasi</h2>
+      <p>Status laporan: <strong>{report?.status ?? 'belum dibuat'}</strong></p>
+      <a class="button secondary" href="/app/weekly-report">{report ? 'Buka laporan' : 'Mulai laporan'}</a>
+      <hr />
+      {latestEvaluation ? <div><strong>{latestEvaluation.title}</strong><p>{latestEvaluation.notes}</p><a href="/app/profile#evaluations">Baca evaluasi →</a></div> : <p class="muted">Belum ada evaluasi yang dipublikasikan.</p>}
+    </aside>
   </div>
 </AppLayout>
 
 <style>
-  .employee-dashboard { display: grid; gap: 1rem; }
-  .progress-hero { display: grid; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-card); background: white; }
-  .progress-copy { padding: clamp(1.2rem, 3vw, 1.8rem); }
-  .section-title-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-  .section-title-row span:first-child { color: var(--muted); font-size: .75rem; }
-  .section-title-row h2 { margin-top: .2rem; font-size: 1.05rem; }
-  .progress-numbers { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin: 2rem 0 1rem; }
-  .progress-numbers strong { font-size: clamp(2.3rem, 6vw, 3.6rem); line-height: .9; letter-spacing: -.04em; font-variant-numeric: tabular-nums; }
-  .progress-numbers small { font-size: .8rem; font-weight: 580; letter-spacing: 0; }
-  .progress-numbers > span { color: var(--muted); font-size: .78rem; }
-  .progress-copy > p { margin-top: 1rem; color: var(--muted); font-size: .78rem; }
-  .progress-copy > p strong { color: var(--ink-soft); }
-  .today-panel { display: flex; flex-direction: column; padding: 1.25rem; background: var(--primary-soft); }
-  .today-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; color: var(--primary); font-size: .76rem; font-weight: 700; }
-  .today-time { display: grid; margin: 1.7rem 0; }
-  .today-time strong { color: var(--primary); font-size: 2.5rem; line-height: 1; font-variant-numeric: tabular-nums; }
-  .today-time span { margin-top: .4rem; color: var(--ink-soft); font-size: .76rem; }
-  .today-panel small { margin-top: .65rem; color: var(--muted); font-size: .68rem; text-align: center; }
-  .dashboard-columns { display: grid; gap: 1rem; }
-  .side-stack { display: grid; gap: 1rem; align-content: start; }
-  .report-card { padding: 1.2rem; }
-  .report-top, .report-progress { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-  .report-top > span { color: var(--muted); font-size: .72rem; }
-  .report-card h2 { margin-top: 1.2rem; font-size: 1rem; }
-  .report-card > p { margin: .45rem 0 1.1rem; color: var(--muted); font-size: .78rem; }
-  .report-progress { margin-bottom: .45rem; color: var(--muted); font-size: .72rem; }
-  .report-progress strong { color: var(--ink-soft); }
-  .report-card .button { width: 100%; margin-top: 1rem; }
-  .evaluation { display: grid; grid-template-columns: auto 1fr; gap: 1rem; padding: 1.2rem; border-radius: var(--radius-card); background: var(--sidebar); color: white; }
-  .evaluation-mark { color: oklch(.78 .08 110); font-size: 2rem; line-height: 1; }
-  .evaluation span { color: var(--sidebar-muted); font-size: .68rem; }
-  .evaluation p { margin: .55rem 0 .8rem; color: oklch(.92 .008 110); font-size: .78rem; }
-  .evaluation a { color: white; font-size: .72rem; font-weight: 700; }
-  @media (min-width: 740px) { .progress-hero { grid-template-columns: minmax(0, 1.65fr) minmax(260px, .75fr); } }
-  @media (min-width: 1160px) { .dashboard-columns { grid-template-columns: minmax(0, 1.55fr) minmax(300px, .65fr); } }
+  .progress-hero { display:grid; gap:1rem; padding:1.25rem; margin-bottom:1rem; }
+  .progress-hero h2 { margin:.35rem 0 1rem; }
+  .today { display:grid; gap:.7rem; padding:1rem; border-radius:10px; background:var(--primary-soft); }
+  .today strong { font-size:2rem; }
+  .metrics-grid { margin-bottom:1rem; }
+  .dashboard-columns { display:grid; gap:1rem; }
+  .panel-body hr { margin:1.25rem 0; border:0; border-top:1px solid var(--line); }
+  .panel-body p { margin:.6rem 0 1rem; color:var(--muted); }
+  @media(min-width:900px){.progress-hero{grid-template-columns:1.4fr .6fr}.dashboard-columns{grid-template-columns:1.4fr .6fr}}
 </style>

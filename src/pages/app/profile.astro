@@ -1,39 +1,45 @@
 ---
+import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import { employeeUser } from '@/lib/demo-data';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData } from '@/lib/dashboard-data';
+import { formatDate } from '@/lib/formatters';
 
-const user = Astro.locals.user ?? employeeUser;
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.updateProfile);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const profile = data?.profiles.find((row) => row.id === user.id);
+const evaluations = data?.evaluations.filter((row) => row.employee_id === user.id && row.is_published && row.visibility === 'employee') ?? [];
 ---
 
-<AppLayout title="Profil" heading="Profil saya" description="Periksa informasi akun dan evaluasi yang terlihat untuk Anda." role="employee" user={user} activePath="/app/profile" isDemo={Astro.locals.isDemo}>
+<AppLayout title="Profil" heading="Profil saya" description="Informasi akun dan evaluasi yang dipublikasikan." role="employee" user={user} activePath="/app/profile">
+  {loadError && <div class="alert danger">{loadError}</div>}
+  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+
   <div class="profile-grid">
-    <section class="panel profile-card">
-      <div class="profile-identity"><span class="avatar large">{user.avatar}</span><div><h2>{user.fullName}</h2><p>{user.employeeCode} · Karyawan</p><StatusBadge label="Akun aktif" tone="success" /></div></div>
-      <dl><div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Zona waktu</dt><dd>Asia/Jakarta</dd></div><div><dt>Bergabung</dt><dd>1 Juli 2026</dd></div><div><dt>Target utama</dt><dd>600 jam</dd></div></dl>
+    <section class="panel panel-body">
+      <div class="identity"><span class="avatar large">{user.avatar}</span><div><h2>{user.fullName}</h2><p>{user.employeeCode ?? 'Tanpa kode'}</p><StatusBadge label={profile?.is_active === false ? 'Nonaktif' : 'Aktif'} tone={profile?.is_active === false ? 'danger' : 'success'} /></div></div>
+      <dl><div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Bergabung</dt><dd>{profile ? formatDate(profile.joined_at) : '—'}</dd></div><div><dt>Zona waktu</dt><dd>{data?.settings.timezone ?? 'Asia/Jakarta'}</dd></div></dl>
     </section>
-    <section class="panel account-settings"><div class="panel-header"><div><h2>Informasi profil</h2><p>Nama dan kode karyawan dikelola admin.</p></div></div><form class="panel-body stack"><div class="field"><label for="name">Nama lengkap</label><input class="input" id="name" value={user.fullName} disabled /></div><div class="field"><label for="profile-email">Email</label><input class="input" id="profile-email" type="email" value={user.email} disabled /></div><div class="field"><label for="portfolio">URL portofolio</label><input class="input" id="portfolio" type="url" placeholder="https://" /></div><button class="button" type="submit">Simpan perubahan</button></form></section>
-    <section class="panel evaluations" id="evaluations"><div class="panel-header"><div><h2>Evaluasi terbaru</h2><p>Hanya evaluasi dengan visibilitas karyawan yang ditampilkan.</p></div></div><article><div class="evaluation-meta"><span>17 Juli 2026</span><StatusBadge label="4 dari 5" tone="success" /></div><h3>Kualitas laporan mingguan</h3><p>Struktur laporan semakin jelas. Pertahankan dokumentasi kendala dan sertakan hasil yang dapat diukur agar progres lebih mudah ditinjau.</p><small>Diberikan oleh Hans Galdino · terkait laporan minggu ke-28</small></article></section>
+    <section class="panel">
+      <div class="panel-header"><div><h2>Informasi profil</h2><p>Nama, email, dan kode dikelola admin.</p></div></div>
+      <form method="POST" action={actions.updateProfile} class="panel-body stack">
+        <label class="field">Nama<input class="input" value={user.fullName} disabled /></label>
+        <label class="field">Email<input class="input" value={user.email} disabled /></label>
+        <label class="field">URL portofolio<input class="input" name="portfolioUrl" type="url" value={profile?.portfolio_url ?? ''} placeholder="https://" /></label>
+        <button class="button" type="submit">Simpan perubahan</button>
+      </form>
+    </section>
+    <section class="panel evaluations" id="evaluations">
+      <div class="panel-header"><div><h2>Evaluasi</h2><p>Hanya evaluasi yang dipublikasikan kepada Anda.</p></div></div>
+      {evaluations.length ? <div>{evaluations.map((item) => <article><div><strong>{item.title}</strong>{item.score && <StatusBadge label={`${item.score}/5`} tone="success" />}</div><p>{item.notes}</p><small>{item.published_at ? formatDate(item.published_at) : formatDate(item.created_at)}</small></article>)}</div> : <EmptyState title="Belum ada evaluasi" description="Evaluasi admin yang dipublikasikan akan tampil di sini." />}
+    </section>
   </div>
 </AppLayout>
 
-<style>
-  .profile-grid { display: grid; gap: 1rem; }
-  .profile-card { padding: 1.3rem; }
-  .profile-identity { display: flex; align-items: center; gap: 1rem; padding-bottom: 1.2rem; border-bottom: 1px solid var(--line); }
-  .avatar.large { width: 60px; height: 60px; font-size: 1rem; }
-  .profile-identity h2 { font-size: 1rem; }
-  .profile-identity p { margin: .2rem 0 .5rem; color: var(--muted); font-size: .75rem; }
-  .profile-card dl { display: grid; gap: .8rem; margin: 1.2rem 0 0; }
-  .profile-card dl div { display: flex; justify-content: space-between; gap: 1rem; }
-  .profile-card dt { color: var(--muted); font-size: .75rem; }
-  .profile-card dd { margin: 0; font-size: .78rem; font-weight: 650; text-align: right; }
-  .account-settings .button { justify-self: start; }
-  .evaluations { grid-column: 1 / -1; }
-  .evaluations article { padding: 1.25rem; }
-  .evaluation-meta { display: flex; justify-content: space-between; gap: 1rem; color: var(--muted); font-size: .72rem; }
-  .evaluations h3 { margin-top: 1rem; font-size: 1rem; }
-  .evaluations article p { max-width: 70ch; margin: .5rem 0 1rem; color: var(--ink-soft); }
-  .evaluations article small { color: var(--muted); }
-  @media (min-width: 900px) { .profile-grid { grid-template-columns: minmax(270px,.6fr) minmax(0,1.4fr); } }
-</style>
+<style>.profile-grid{display:grid;gap:1rem}.identity{display:flex;gap:1rem;align-items:center}.identity p{margin:.25rem 0 .5rem;color:var(--muted)}dl{display:grid;gap:.7rem;margin-top:1.2rem}dl div{display:flex;justify-content:space-between}dt{color:var(--muted)}dd{margin:0}.evaluations{grid-column:1/-1}.evaluations article{padding:1rem 1.2rem;border-bottom:1px solid var(--line)}.evaluations article>div{display:flex;justify-content:space-between}.evaluations p{margin:.6rem 0;color:var(--muted)}@media(min-width:900px){.profile-grid{grid-template-columns:.7fr 1.3fr}}</style>

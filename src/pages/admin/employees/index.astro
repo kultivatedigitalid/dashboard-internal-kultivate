@@ -1,46 +1,44 @@
 ---
+import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
-import ProgressBar from '@/components/ProgressBar.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import { adminUser, teamProgress } from '@/lib/demo-data';
-import { calculateProgress } from '@/lib/formatters';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData } from '@/lib/dashboard-data';
+import { netHours } from '@/lib/dates';
 
-const user = Astro.locals.user ?? adminUser;
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.inviteEmployee);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const q = Astro.url.searchParams.get('q')?.toLowerCase() ?? '';
+const state = Astro.url.searchParams.get('state') ?? '';
+const employees = (data?.profiles ?? []).filter((row) => row.role === 'employee' && (!q || row.full_name.toLowerCase().includes(q) || row.email.toLowerCase().includes(q) || row.employee_code?.toLowerCase().includes(q)) && (!state || String(row.is_active) === state));
+const hours = (id: string) => (data?.sessions ?? []).filter((row) => row.employee_id === id && row.status === 'approved').reduce((sum, row) => sum + netHours(row.check_in, row.check_out, row.break_minutes), 0);
 ---
 
-<AppLayout title="Karyawan" heading="Karyawan" description="Lihat status akun, progress target, dan aktivitas masing-masing karyawan." role="admin" user={user} activePath="/admin/employees" isDemo={Astro.locals.isDemo}>
-  <button slot="actions" class="button" type="button">Undang karyawan</button>
-  <section class="panel employee-directory">
-    <div class="panel-header directory-toolbar"><div><h2>Direktori tim</h2><p>3 karyawan aktif.</p></div><div class="cluster"><input class="input search" type="search" placeholder="Cari karyawan..." aria-label="Cari karyawan" /><select class="select filter" aria-label="Filter status akun"><option>Semua status</option><option>Aktif</option><option>Nonaktif</option></select></div></div>
-    <div class="employee-cards">
-      {teamProgress.map((employee) => {
-        const value = calculateProgress(employee.approvedHours, employee.targetHours);
-        return <article><div class="employee-top"><span class="avatar large">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><StatusBadge label="Aktif" tone="success" /></div><div class="employee-copy"><h3>{employee.name}</h3><p>{employee.code} · employee</p></div><div class="employee-progress"><div><span>Target 600 jam</span><strong>{employee.approvedHours} jam · {value}%</strong></div><ProgressBar value={value} /></div><dl><div><dt>Minggu ini</dt><dd>{employee.weekHours} jam</dd></div><div><dt>Kehadiran</dt><dd>{employee.attendanceStatus === 'not_checked_in' ? 'Belum check-in' : 'Tercatat'}</dd></div></dl><a class="button secondary" href={`/admin/employees/${employee.id}`}>Buka profil</a></article>;
-      })}
+<AppLayout title="Karyawan" heading="Karyawan" description="Undang akun baru dan pantau status anggota tim." role="admin" user={user} activePath="/admin/employees">
+  {loadError && <div class="alert danger">{loadError}</div>}
+  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+
+  <section class="panel invite">
+    <div class="panel-header"><div><h2>Undang karyawan</h2><p>Supabase akan mengirim email untuk membuat password.</p></div></div>
+    <form method="POST" action={actions.inviteEmployee} class="panel-body invite-fields">
+      <label class="field">Nama lengkap<input class="input" name="fullName" required /></label>
+      <label class="field">Email<input class="input" name="email" type="email" required /></label>
+      <label class="field">Kode karyawan<input class="input" name="employeeCode" required /></label>
+      <button class="button" type="submit">Kirim undangan</button>
+    </form>
+  </section>
+
+  <section class="panel directory">
+    <div class="panel-header">
+      <form method="GET" class="filters"><input class="input" name="q" value={q} placeholder="Cari karyawan..." /><select class="select" name="state"><option value="">Semua status</option><option value="true" selected={state === 'true'}>Aktif</option><option value="false" selected={state === 'false'}>Nonaktif</option></select><button class="button secondary">Terapkan</button></form>
     </div>
+    {employees.length ? <div class="employee-grid">{employees.map((employee) => <article><div><span class="avatar">{employee.full_name.split(' ').slice(0,2).map((p) => p[0]).join('')}</span><StatusBadge label={employee.is_active ? 'Aktif' : 'Nonaktif'} tone={employee.is_active ? 'success' : 'danger'} /></div><h3>{employee.full_name}</h3><p>{employee.employee_code ?? 'Tanpa kode'} · {employee.email}</p><strong>{hours(employee.id).toFixed(1)} jam disetujui</strong><a class="button secondary" href={`/admin/employees/${employee.id}`}>Buka profil</a></article>)}</div> : <EmptyState title="Karyawan tidak ditemukan" description="Undang karyawan baru atau ubah filter." />}
   </section>
 </AppLayout>
 
-<style>
-  .directory-toolbar { align-items: center; flex-wrap: wrap; }
-  .directory-toolbar .cluster { width: 100%; }
-  .search { flex: 1 1 190px; }
-  .filter { width: auto; }
-  .employee-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr)); gap: 0; }
-  .employee-cards article { display: flex; flex-direction: column; min-width: 0; padding: 1.2rem; border-bottom: 1px solid var(--line); }
-  .employee-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-  .avatar.large { width: 48px; height: 48px; }
-  .employee-copy { margin-top: .85rem; }
-  .employee-copy h3 { font-size: .92rem; }
-  .employee-copy p { margin-top: .2rem; color: var(--muted); font-size: .7rem; }
-  .employee-progress { display: grid; gap: .5rem; margin: 1.2rem 0; }
-  .employee-progress > div { display: flex; justify-content: space-between; gap: 1rem; font-size: .7rem; }
-  .employee-progress span { color: var(--muted); }
-  .employee-progress strong { font-variant-numeric: tabular-nums; }
-  .employee-cards dl { display: grid; gap: .55rem; margin: 0 0 1.2rem; }
-  .employee-cards dl div { display: flex; justify-content: space-between; gap: 1rem; }
-  .employee-cards dt { color: var(--muted); font-size: .7rem; }
-  .employee-cards dd { margin: 0; font-size: .72rem; font-weight: 650; }
-  .employee-cards .button { width: 100%; margin-top: auto; }
-  @media (min-width: 680px) { .employee-cards article { border-right: 1px solid var(--line); } .directory-toolbar .cluster { width: auto; } }
-</style>
+<style>.invite,.directory{margin-bottom:1rem}.invite-fields,.filters{display:grid;gap:.7rem}.employee-grid{display:grid;gap:1px;background:var(--line)}.employee-grid article{display:grid;gap:.6rem;padding:1.1rem;background:white}.employee-grid article>div{display:flex;justify-content:space-between}.employee-grid p{color:var(--muted);font-size:.78rem}.employee-grid .button{margin-top:.4rem}@media(min-width:760px){.invite-fields{grid-template-columns:1fr 1fr 1fr auto;align-items:end}.filters{grid-template-columns:1fr 220px auto}.employee-grid{grid-template-columns:repeat(2,1fr)}}@media(min-width:1100px){.employee-grid{grid-template-columns:repeat(3,1fr)}}</style>

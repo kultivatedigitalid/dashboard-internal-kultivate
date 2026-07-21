@@ -1,36 +1,32 @@
 ---
+import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import StatBlock from '@/components/StatBlock.astro';
-import { adminUser } from '@/lib/demo-data';
-const user = Astro.locals.user ?? adminUser;
-const rows = [
-  { name:'Joshua Wijaya', date:'20 Jul 2026', in:'08.03', out:'—', hours:'Berjalan', mode:'Kantor', status:'Draft' },
-  { name:'Airin Frantrishia Lay', date:'20 Jul 2026', in:'08.11', out:'17.02', hours:'8j 6m', mode:'Remote', status:'Submitted' },
-  { name:'Davis Ariel', date:'17 Jul 2026', in:'08.17', out:'17.04', hours:'7j 47m', mode:'Kantor', status:'Submitted' },
-  { name:'Joshua Wijaya', date:'17 Jul 2026', in:'08.06', out:'17.11', hours:'8j 5m', mode:'Kantor', status:'Approved' },
-];
+import EmptyState from '@/components/EmptyState.astro';
+import { employeeName, loadDashboardData } from '@/lib/dashboard-data';
+import { formatDate, formatDateTime } from '@/lib/formatters';
+import { netHours } from '@/lib/dates';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.reviewAttendance);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const employee = Astro.url.searchParams.get('employee') ?? '';
+const status = Astro.url.searchParams.get('status') ?? 'submitted';
+const sessions = (data?.sessions ?? []).filter((row) => (!employee || row.employee_id === employee) && (!status || row.status === status));
+const employees = data?.profiles.filter((row) => row.role === 'employee') ?? [];
 ---
 
-<AppLayout title="Review absensi" heading="Review absensi" description="Tinjau durasi dan catatan kerja sebelum jam masuk ke progress target." role="admin" user={user} activePath="/admin/attendance" isDemo={Astro.locals.isDemo}>
-  <section class="metrics-grid"><StatBlock label="Hadir hari ini" value="2 dari 3" helper="1 belum check-in" /><StatBlock label="Menunggu review" value="2" helper="Total 15 jam 53 menit" trend="Perlu review" tone="warning" /><StatBlock label="Disetujui minggu ini" value="9" helper="72 jam 16 menit" trend="Selesai" tone="success" /></section>
-  <section class="panel review-table"><div class="panel-header review-toolbar"><div><h2>Catatan absensi</h2><p>Urut dari yang terbaru.</p></div><form><select class="select"><option>Semua karyawan</option><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select><select class="select"><option>Menunggu review</option><option>Semua status</option><option>Approved</option><option>Rejected</option></select><input class="input" type="date" value="2026-07-20" /></form></div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Check-in</th><th>Check-out</th><th>Total</th><th>Mode</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{rows.map((row) => <tr><td><strong>{row.name}</strong></td><td>{row.date}</td><td>{row.in}</td><td>{row.out}</td><td>{row.hours}</td><td>{row.mode}</td><td><StatusBadge label={row.status} tone={row.status === 'Approved' ? 'success' : row.status === 'Submitted' ? 'warning' : 'neutral'} /></td><td><button class="button ghost" type="button">Tinjau</button></td></tr>)}</tbody></table></div></section>
-  <section class="review-drawer panel"><div class="panel-header"><div><h2>Review · Airin Frantrishia Lay</h2><p>20 Juli 2026 · Remote</p></div><StatusBadge label="Submitted" tone="warning" /></div><div class="panel-body review-detail"><dl><div><dt>Check-in</dt><dd>08.11 WIB</dd></div><div><dt>Check-out</dt><dd>17.02 WIB</dd></div><div><dt>Istirahat</dt><dd>45 menit</dd></div><div><dt>Durasi bersih</dt><dd>8 jam 6 menit</dd></div></dl><div class="activity-note"><span>Catatan aktivitas</span><p>Menyelesaikan layout dashboard karyawan dan menguji responsivitas pada ukuran 360px dan 390px.</p></div><div class="field"><label for="review-note">Catatan review</label><textarea class="textarea" id="review-note" placeholder="Wajib diisi jika ditolak"></textarea></div><div class="review-actions"><button class="button secondary danger-text" type="button">Tolak</button><button class="button" type="button">Setujui absensi</button></div></div></section>
+<AppLayout title="Review absensi" heading="Absensi" description="Tinjau durasi dan catatan aktivitas karyawan." role="admin" user={user} activePath="/admin/attendance">
+  {loadError && <div class="alert danger">{loadError}</div>}
+  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
+  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+  <section class="panel">
+    <div class="panel-header"><form method="GET" class="filters"><select class="select" name="employee"><option value="">Semua karyawan</option>{employees.map((row) => <option value={row.id} selected={employee === row.id}>{row.full_name}</option>)}</select><select class="select" name="status"><option value="">Semua status</option>{['draft','submitted','approved','rejected'].map((value) => <option value={value} selected={status === value}>{value}</option>)}</select><button class="button secondary">Terapkan</button></form></div>
+    {sessions.length ? <div class="review-list">{sessions.map((row) => <article><div class="review-main"><div><strong>{employeeName(data!, row.employee_id)}</strong><span>{formatDate(row.work_date)} · {row.work_mode}</span></div><StatusBadge label={row.status} tone={row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'danger' : 'warning'} /></div><dl><div><dt>Check-in</dt><dd>{formatDateTime(row.check_in)}</dd></div><div><dt>Check-out</dt><dd>{row.check_out ? formatDateTime(row.check_out) : '—'}</dd></div><div><dt>Durasi bersih</dt><dd>{netHours(row.check_in, row.check_out, row.break_minutes).toFixed(1)} jam</dd></div></dl>{row.activity_note && <p>{row.activity_note}</p>}{row.status === 'submitted' ? <form method="POST" action={actions.reviewAttendance} class="review-form"><input type="hidden" name="sessionId" value={row.id} /><textarea class="textarea" name="reviewNote" placeholder="Catatan wajib jika ditolak"></textarea><div class="cluster"><button class="button secondary" name="decision" value="rejected">Tolak</button><button class="button" name="decision" value="approved">Setujui</button></div></form> : row.review_note && <div class="alert">{row.review_note}</div>}</article>)}</div> : <EmptyState title="Tidak ada absensi" description="Tidak ada data yang cocok dengan filter." />}
+  </section>
 </AppLayout>
 
-<style>
-  .review-table, .review-drawer { margin-top: 1rem; }
-  .review-toolbar { align-items: center; flex-wrap: wrap; }
-  .review-toolbar form { width: 100%; display: flex; flex-wrap: wrap; gap: .5rem; }
-  .review-toolbar form > * { flex: 1 1 150px; }
-  .review-detail dl { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 0; }
-  .review-detail dl div { display: grid; padding: .8rem; border-radius: 9px; background: var(--surface); }
-  .review-detail dt { color: var(--muted); font-size: .68rem; }
-  .review-detail dd { margin: .2rem 0 0; font-size: .82rem; font-weight: 700; }
-  .activity-note { margin: 1rem 0; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; }
-  .activity-note span { color: var(--muted); font-size: .7rem; }
-  .activity-note p { margin-top: .35rem; color: var(--ink-soft); font-size: .78rem; }
-  .review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }
-  .danger-text { color: var(--danger) !important; }
-  @media (min-width: 900px) { .review-toolbar form { width: auto; } .review-detail dl { grid-template-columns: repeat(4, 1fr); } }
-</style>
+<style>.filters{display:grid;gap:.6rem}.review-list article{padding:1rem 1.2rem;border-bottom:1px solid var(--line)}.review-main{display:flex;justify-content:space-between;gap:1rem}.review-main>div{display:grid}.review-main span{color:var(--muted);font-size:.75rem}dl{display:grid;gap:.5rem;margin:1rem 0}dl div{display:flex;justify-content:space-between}dt{color:var(--muted)}dd{margin:0}.review-list p{color:var(--muted)}.review-form{display:grid;gap:.7rem;margin-top:1rem}@media(min-width:700px){.filters{grid-template-columns:240px 200px auto}.review-list article{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.review-form,.review-list article>p,.review-list article>.alert{grid-column:1/-1}}</style>

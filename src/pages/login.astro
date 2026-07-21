@@ -12,7 +12,14 @@ if (result && !result.error) {
   return Astro.redirect(result.data.redirectTo);
 }
 const inputErrors = isInputError(result?.error) ? result.error.fields : {};
-const isDemo = import.meta.env.DEV && !import.meta.env.PUBLIC_SUPABASE_URL;
+const queryNotice =
+  Astro.url.searchParams.get('password') === 'updated'
+    ? { tone: 'success', message: 'Password berhasil diperbarui. Silakan masuk kembali.' }
+    : Astro.url.searchParams.get('error') === 'config'
+      ? { tone: 'danger', message: 'Supabase belum dikonfigurasi. Jalankan npm run setup:supabase.' }
+      : Astro.url.searchParams.get('error') === 'inactive'
+        ? { tone: 'danger', message: 'Akun dinonaktifkan. Hubungi administrator.' }
+        : null;
 ---
 
 <BaseLayout title="Masuk" bodyClass="auth-body">
@@ -41,6 +48,7 @@ const isDemo = import.meta.env.DEV && !import.meta.env.PUBLIC_SUPABASE_URL;
           <p>Gunakan akun yang telah dibuat oleh administrator.</p>
         </div>
 
+        {queryNotice && <div class:list={['alert', queryNotice.tone]} role="status">{queryNotice.message}</div>}
         {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
 
         <form method="POST" action={actions.login} class="auth-form">
@@ -54,22 +62,12 @@ const isDemo = import.meta.env.DEV && !import.meta.env.PUBLIC_SUPABASE_URL;
             <input class="input" id="password" name="password" type="password" autocomplete="current-password" placeholder="Minimal 8 karakter" minlength="8" required aria-describedby={inputErrors.password ? 'password-error' : undefined} />
             {inputErrors.password && <span class="field-error" id="password-error">{inputErrors.password.join(', ')}</span>}
           </div>
-          <button class="button submit-button" type="submit">Masuk ke dashboard <span aria-hidden="true">→</span></button>
+          <button class="button submit-button" type="submit">Masuk ke dashboard <span aria-hidden="true">â†’</span></button>
         </form>
 
-        {isDemo && (
-          <div class="demo-access">
-            <span>Pratinjau lokal</span>
-            <div>
-              <a class="button secondary" href="/demo?role=employee">Dashboard karyawan</a>
-              <a class="button secondary" href="/demo?role=admin">Dashboard admin</a>
-            </div>
-          </div>
-        )}
-
-        <p class="auth-note">Belum memiliki akun? Hubungi Hans sebagai administrator.</p>
+        <p class="auth-note">Belum memiliki akun? Hubungi administrator.</p>
       </div>
-      <footer>Internal Work Dashboard · Asia/Jakarta</footer>
+      <footer>Internal Work Dashboard Â· Asia/Jakarta</footer>
     </section>
   </main>
 </BaseLayout>

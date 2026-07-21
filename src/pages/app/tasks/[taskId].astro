@@ -1,85 +1,84 @@
 ---
+import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
-import ProgressBar from '@/components/ProgressBar.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import { employeeTasks, employeeUser } from '@/lib/demo-data';
-import { formatDate } from '@/lib/formatters';
+import EmptyState from '@/components/EmptyState.astro';
+import { createEvidenceUrl, loadDashboardData } from '@/lib/dashboard-data';
+import { formatDate, formatDateTime } from '@/lib/formatters';
 
-const user = Astro.locals.user ?? employeeUser;
-const task = employeeTasks.find((item) => item.id === Astro.params.taskId) ?? employeeTasks[0];
-if (!task) return Astro.redirect('/app/tasks');
-const checklist = [
-  { label: 'Membaca panduan kerja', done: true },
-  { label: 'Menyiapkan akun dan tools', done: true },
-  { label: 'Memastikan akses repository', done: true },
-  { label: 'Membuat catatan setup', done: true },
-  { label: 'Mengirim bukti setup', done: false },
-];
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const taskId = Astro.params.taskId ?? '';
+const task = data?.tasks.find((row) => row.id === taskId);
+if (!task && !loadError) Astro.response.status = 404;
+const checklist = data?.checklist.filter((row) => row.task_id === taskId) ?? [];
+const updates = data?.taskUpdates.filter((row) => row.task_id === taskId) ?? [];
+const evidenceUrls = new Map<string, string>();
+for (const update of updates) {
+  if (update.evidence_path) {
+    const url = await createEvidenceUrl(Astro, update.evidence_path);
+    if (url) evidenceUrls.set(update.id, url);
+  }
+}
+const results = [
+  Astro.getActionResult(actions.updateTaskProgress),
+  Astro.getActionResult(actions.toggleChecklist),
+  Astro.getActionResult(actions.uploadTaskEvidence),
+].filter(Boolean);
 ---
 
-<AppLayout title={task.title} heading={task.title} description={`Deadline ${formatDate(task.dueDate)} · Ditugaskan kepada ${task.assignee}`} role="employee" user={user} activePath={`/app/tasks/${task.id}`} isDemo={Astro.locals.isDemo}>
-  <a slot="actions" class="button secondary" href="/app/tasks">Kembali ke tugas</a>
+<AppLayout title={task?.title ?? 'Tugas'} heading={task?.title ?? 'Tugas tidak ditemukan'} description="Perbarui progres dan lampirkan hasil pekerjaan." role="employee" user={user} activePath="/app/tasks">
+  <a slot="actions" class="button secondary" href="/app/tasks">Kembali</a>
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {results.map((result) => result?.error ? <div class="alert danger" role="alert">{result.error.message}</div> : <div class="alert success">{result?.data.message}</div>)}
 
-  <div class="task-detail-grid">
-    <section class="task-detail-main">
-      <div class="panel task-overview">
-        <div class="overview-status"><StatusBadge label="Sedang dikerjakan" tone="info" /><StatusBadge label="Prioritas tinggi" tone="warning" /></div>
-        <h2>Persiapkan seluruh akses dan perangkat kerja agar aktivitas tim dapat dimulai tanpa hambatan.</h2>
-        <div class="detail-meta"><div><span>Tanggal mulai</span><strong>20 Jul 2026</strong></div><div><span>Deadline</span><strong>{formatDate(task.dueDate)}</strong></div><div><span>Estimasi</span><strong>12 jam</strong></div></div>
+  {!task ? <EmptyState title="Tugas tidak ditemukan" description="Tugas mungkin sudah dihapus atau tidak ditugaskan kepada Anda." actionLabel="Kembali ke tugas" actionHref="/app/tasks" /> : (
+    <div class="task-grid">
+      <div class="stack">
+        <section class="panel panel-body">
+          <div class="cluster"><StatusBadge label={task.status} tone="info" /><StatusBadge label={task.priority} tone={task.priority === 'urgent' ? 'danger' : 'warning'} /></div>
+          <p>{task.description || 'Tidak ada deskripsi.'}</p>
+          <dl class="facts"><div><dt>Mulai</dt><dd>{task.start_date ? formatDate(task.start_date) : '—'}</dd></div><div><dt>Deadline</dt><dd>{task.due_date ? formatDate(task.due_date) : '—'}</dd></div><div><dt>Estimasi</dt><dd>{task.estimate_hours ?? 0} jam</dd></div></dl>
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><div><h2>Checklist</h2><p>{checklist.filter((item) => item.is_done).length} dari {checklist.length} selesai.</p></div></div>
+          {checklist.length ? <div class="checklist">{checklist.map((item) => <form method="POST" action={actions.toggleChecklist}><input type="hidden" name="itemId" value={item.id} /><input type="hidden" name="isDone" value={String(!item.is_done)} /><button class:list={['check-item', { done: item.is_done }]} type="submit"><span>{item.is_done ? '✓' : ''}</span>{item.title}</button></form>)}</div> : <EmptyState title="Belum ada checklist" description="Admin tidak menambahkan checklist pada tugas ini." />}
+        </section>
+
+        <section class="panel">
+          <div class="panel-header"><div><h2>Riwayat progres</h2><p>Catatan, link, dan bukti terbaru.</p></div></div>
+          {updates.length ? <div class="updates">{updates.map((update) => <article><div><strong>{update.progress}%</strong><span>{formatDateTime(update.created_at)}</span></div>{update.note && <p>{update.note}</p>}{update.work_url && <a href={update.work_url} target="_blank" rel="noreferrer">Buka tautan hasil ↗</a>}{evidenceUrls.get(update.id) && <a href={evidenceUrls.get(update.id)} target="_blank" rel="noreferrer">Buka bukti kerja ↗</a>}</article>)}</div> : <EmptyState title="Belum ada pembaruan" description="Simpan progres pertama Anda." />}
+        </section>
       </div>
 
-      <section class="panel checklist-panel">
-        <div class="panel-header"><div><h2>Checklist tugas</h2><p>{task.checklistDone} dari {task.checklistTotal} item selesai.</p></div><strong>{task.progress}%</strong></div>
-        <div class="checklist">
-          {checklist.map((item, index) => <label class:list={['check-item', { done: item.done }]}><input type="checkbox" checked={item.done} /><span class="custom-check" aria-hidden="true">{item.done ? '✓' : ''}</span><span>{item.label}</span><small>Langkah {index + 1}</small></label>)}
-        </div>
-      </section>
-
-      <section class="panel evidence-panel">
-        <div class="panel-header"><div><h2>Bukti pekerjaan</h2><p>PDF, JPEG, PNG, atau WebP hingga 10 MB.</p></div></div>
-        <div class="upload-zone"><strong>Letakkan file di sini</strong><span>atau pilih dari perangkat Anda</span><button class="button secondary" type="button">Pilih file</button></div>
-      </section>
-    </section>
-
-    <aside class="task-side">
-      <section class="panel progress-editor">
-        <div class="panel-header"><div><h2>Perbarui progres</h2><p>Perubahan hanya berlaku pada progres Anda.</p></div></div>
-        <form class="panel-body stack">
-          <ProgressBar value={task.progress} label="Progres saat ini" showValue />
-          <div class="field"><label for="status">Status</label><select class="select" id="status"><option>Dalam proses</option><option>Dalam review</option><option>Selesai</option></select></div>
-          <div class="field"><label for="progress-note">Catatan progres</label><textarea class="textarea" id="progress-note" placeholder="Apa yang sudah dikerjakan?"></textarea></div>
-          <button class="button" type="submit">Simpan progres</button>
-        </form>
-      </section>
-      <section class="panel link-panel"><div class="panel-body"><h2>Tautan hasil</h2><p>Tambahkan GitHub, Drive, Figma, atau website.</p><div class="field"><label for="work-link">URL pekerjaan</label><input class="input" id="work-link" type="url" placeholder="https://" /></div><button class="button secondary" type="button">Tambahkan tautan</button></div></section>
-    </aside>
-  </div>
+      <aside class="stack">
+        <section class="panel">
+          <div class="panel-header"><div><h2>Perbarui progres</h2></div></div>
+          <form method="POST" action={actions.updateTaskProgress} class="panel-body stack">
+            <input type="hidden" name="taskId" value={task.id} />
+            <label class="field">Progres (%)<input class="input" name="progress" type="number" min="0" max="100" value={task.progress} required /></label>
+            <label class="field">Catatan<textarea class="textarea" name="note" maxlength="3000"></textarea></label>
+            <label class="field">URL hasil<input class="input" name="workUrl" type="url" placeholder="https://" /></label>
+            <button class="button" type="submit">Simpan progres</button>
+          </form>
+        </section>
+        <section class="panel">
+          <div class="panel-header"><div><h2>Unggah bukti</h2><p>PDF/JPG/PNG/WebP, maksimal 10 MB.</p></div></div>
+          <form method="POST" action={actions.uploadTaskEvidence} enctype="multipart/form-data" class="panel-body stack">
+            <input type="hidden" name="taskId" value={task.id} />
+            <input class="input" name="evidence" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required />
+            <button class="button secondary" type="submit">Unggah bukti</button>
+          </form>
+        </section>
+      </aside>
+    </div>
+  )}
 </AppLayout>
 
 <style>
-  .task-detail-grid { display: grid; gap: 1rem; }
-  .task-detail-main, .task-side { display: grid; gap: 1rem; align-content: start; }
-  .task-overview { padding: 1.25rem; }
-  .overview-status { display: flex; flex-wrap: wrap; gap: .45rem; }
-  .task-overview h2 { max-width: 62ch; margin: 1rem 0 1.4rem; font-size: 1.05rem; font-weight: 620; line-height: 1.55; }
-  .detail-meta { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-  .detail-meta div { display: grid; }
-  .detail-meta span { color: var(--muted); font-size: .7rem; }
-  .detail-meta strong { margin-top: .15rem; font-size: .8rem; }
-  .checklist-panel .panel-header > strong { color: var(--primary); }
-  .checklist { display: grid; }
-  .check-item { min-height: 62px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .8rem; padding: .8rem 1.2rem; border-bottom: 1px solid var(--line); cursor: pointer; }
-  .check-item:last-child { border-bottom: 0; }
-  .check-item input { position: absolute; opacity: 0; }
-  .custom-check { width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid var(--line-strong); border-radius: 7px; color: white; }
-  .check-item.done .custom-check { border-color: var(--primary); background: var(--primary); }
-  .check-item.done > span:nth-of-type(2) { color: var(--muted); text-decoration: line-through; }
-  .check-item small { color: var(--muted); font-size: .68rem; }
-  .upload-zone { min-height: 220px; display: grid; place-items: center; align-content: center; gap: .3rem; margin: 1rem; padding: 1.5rem; border: 1px dashed var(--line-strong); border-radius: 10px; background: var(--surface); text-align: center; }
-  .upload-zone strong { font-size: .88rem; }
-  .upload-zone span { margin-bottom: .7rem; color: var(--muted); font-size: .75rem; }
-  .link-panel h2 { font-size: 1rem; }
-  .link-panel p { margin: .35rem 0 1rem; color: var(--muted); font-size: .78rem; }
-  .link-panel .button { width: 100%; margin-top: .8rem; }
-  @media (min-width: 1050px) { .task-detail-grid { grid-template-columns: minmax(0, 1.45fr) minmax(320px, .55fr); } }
+  .task-grid{display:grid;gap:1rem}.panel-body>p{margin:1rem 0;color:var(--muted)}.facts{display:grid;gap:.6rem}.facts div{display:flex;justify-content:space-between}.facts dt{color:var(--muted)}.facts dd{margin:0}.checklist{display:grid}.check-item{width:100%;display:flex;gap:.7rem;padding:.9rem 1.1rem;border:0;border-bottom:1px solid var(--line);background:white;text-align:left;cursor:pointer}.check-item span{width:22px;height:22px;border:1px solid var(--line-strong);border-radius:6px;text-align:center}.check-item.done{color:var(--muted);text-decoration:line-through}.updates article{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.updates article>div{display:flex;justify-content:space-between}.updates span{color:var(--muted);font-size:.72rem}.updates p{margin:.5rem 0}.updates a{display:block;color:var(--primary);font-size:.78rem}@media(min-width:960px){.task-grid{grid-template-columns:1.3fr .7fr}}
 </style>

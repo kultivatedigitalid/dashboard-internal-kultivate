@@ -1,38 +1,31 @@
 ---
+import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import StatBlock from '@/components/StatBlock.astro';
-import { adminUser } from '@/lib/demo-data';
-import { formatIDR } from '@/lib/formatters';
-const user = Astro.locals.user ?? adminUser;
-const entries = [
-  { employee:'Davis Ariel', date:'20 Jul 2026', transport:60000, meal:0, total:60000, status:'Submitted' },
-  { employee:'Airin Frantrishia Lay', date:'20 Jul 2026', transport:0, meal:35000, total:35000, status:'Submitted' },
-  { employee:'Joshua Wijaya', date:'17 Jul 2026', transport:50000, meal:35000, total:85000, status:'Approved' },
-];
+import EmptyState from '@/components/EmptyState.astro';
+import { employeeName, loadDashboardData } from '@/lib/dashboard-data';
+import { formatDate, formatIDR } from '@/lib/formatters';
+
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.reviewAllowance);
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const employee = Astro.url.searchParams.get('employee') ?? '';
+const status = Astro.url.searchParams.get('status') ?? 'submitted';
+const entries = (data?.allowances ?? []).filter((row) => (!employee || row.employee_id === employee) && (!status || row.status === status));
+const employees = data?.profiles.filter((row) => row.role === 'employee') ?? [];
 ---
 
-<AppLayout title="Review tunjangan" heading="Tunjangan" description="Review biaya transportasi dan makan dengan format Rupiah yang konsisten." role="admin" user={user} activePath="/admin/allowances" isDemo={Astro.locals.isDemo}>
-  <section class="metrics-grid"><StatBlock label="Menunggu review" value={formatIDR(95000)} helper="2 pengajuan" trend="Perlu review" tone="warning" /><StatBlock label="Disetujui Juli" value={formatIDR(1065000)} helper="18 pengajuan" trend="Terverifikasi" tone="success" /><StatBlock label="Ditolak Juli" value={formatIDR(80000)} helper="1 pengajuan" /></section>
-  <section class="panel allowance-admin"><div class="panel-header allowance-toolbar"><div><h2>Pengajuan tunjangan</h2><p>Juli 2026 · seluruh karyawan.</p></div><form><select class="select"><option>Semua karyawan</option><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select><select class="select"><option>Menunggu review</option><option>Semua status</option></select></form></div><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Tanggal</th><th>Transportasi</th><th>Makan</th><th>Total</th><th>Status</th><th>Aksi</th></tr></thead><tbody>{entries.map((entry) => <tr><td><strong>{entry.employee}</strong></td><td>{entry.date}</td><td>{formatIDR(entry.transport)}</td><td>{formatIDR(entry.meal)}</td><td><strong>{formatIDR(entry.total)}</strong></td><td><StatusBadge label={entry.status} tone={entry.status === 'Approved' ? 'success' : 'warning'} /></td><td><button class="button ghost" type="button">Review</button></td></tr>)}</tbody></table></div></section>
-  <section class="panel allowance-review"><div class="panel-header"><div><h2>Davis · Transportasi</h2><p>20 Juli 2026</p></div><StatusBadge label="Submitted" tone="warning" /></div><div class="panel-body review-grid"><dl><div><dt>Transportasi</dt><dd>{formatIDR(60000)}</dd></div><div><dt>Uang makan</dt><dd>{formatIDR(0)}</dd></div><div><dt>Total</dt><dd>{formatIDR(60000)}</dd></div></dl><div class="receipt"><span>Bukti pembayaran</span><strong>receipt-20-jul.pdf</strong><button class="button secondary" type="button">Buka bukti</button></div><div class="field full"><label for="allowance-review-note">Catatan review</label><textarea class="textarea" id="allowance-review-note" placeholder="Wajib jika pengajuan ditolak"></textarea></div><div class="review-actions full"><button class="button secondary danger-text" type="button">Tolak</button><button class="button" type="button">Setujui pengajuan</button></div></div></section>
+<AppLayout title="Review tunjangan" heading="Tunjangan" description="Verifikasi pengajuan biaya transportasi dan makan." role="admin" user={user} activePath="/admin/allowances">
+  {loadError && <div class="alert danger">{loadError}</div>}
+  {result?.error && <div class="alert danger">{result.error.message}</div>}
+  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+  <section class="panel">
+    <div class="panel-header"><form method="GET" class="filters"><select class="select" name="employee"><option value="">Semua karyawan</option>{employees.map((row) => <option value={row.id} selected={employee === row.id}>{row.full_name}</option>)}</select><select class="select" name="status"><option value="">Semua status</option>{['draft','submitted','approved','rejected'].map((value) => <option value={value} selected={status === value}>{value}</option>)}</select><button class="button secondary">Terapkan</button></form></div>
+    {entries.length ? <div class="review-list">{entries.map((row) => <article><header><div><strong>{employeeName(data!, row.employee_id)}</strong><span>{formatDate(row.expense_date)}</span></div><StatusBadge label={row.status} tone={row.status === 'approved' ? 'success' : row.status === 'rejected' ? 'danger' : 'warning'} /></header><dl><div><dt>Transportasi</dt><dd>{formatIDR(row.transport_amount)}</dd></div><div><dt>Makan</dt><dd>{formatIDR(row.meal_amount)}</dd></div><div><dt>Total</dt><dd><strong>{formatIDR(row.transport_amount + row.meal_amount)}</strong></dd></div></dl>{row.notes && <p>{row.notes}</p>}{row.status === 'submitted' ? <form method="POST" action={actions.reviewAllowance} class="review-form"><input type="hidden" name="allowanceId" value={row.id} /><textarea class="textarea" name="reviewNote" placeholder="Catatan wajib jika ditolak"></textarea><div class="cluster"><button class="button secondary" name="decision" value="rejected">Tolak</button><button class="button" name="decision" value="approved">Setujui</button></div></form> : row.review_note && <div class="alert">{row.review_note}</div>}</article>)}</div> : <EmptyState title="Tidak ada pengajuan" description="Tidak ada tunjangan yang cocok dengan filter." />}
+  </section>
 </AppLayout>
 
-<style>
-  .allowance-admin, .allowance-review { margin-top: 1rem; }
-  .allowance-toolbar { flex-wrap: wrap; }
-  .allowance-toolbar form { width: 100%; display: flex; flex-wrap: wrap; gap: .5rem; }
-  .allowance-toolbar .select { flex: 1 1 170px; }
-  .review-grid { display: grid; gap: 1rem; }
-  .review-grid dl { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin: 0; }
-  .review-grid dl div { padding: .8rem; border-radius: 9px; background: var(--surface); }
-  .review-grid dt { color: var(--muted); font-size: .68rem; }
-  .review-grid dd { margin: .2rem 0 0; font-weight: 700; }
-  .receipt { display: grid; align-content: center; gap: .25rem; padding: 1rem; border: 1px solid var(--line); border-radius: 10px; }
-  .receipt span { color: var(--muted); font-size: .68rem; }
-  .receipt strong { font-size: .8rem; }
-  .receipt .button { margin-top: .5rem; }
-  .review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: .6rem; }
-  .danger-text { color: var(--danger) !important; }
-  @media (min-width: 800px) { .allowance-toolbar form { width: auto; } .review-grid { grid-template-columns: 1fr .7fr; } .full { grid-column: 1 / -1; } }
-</style>
+<style>.filters{display:grid;gap:.6rem}.review-list{display:grid;gap:1px;background:var(--line)}.review-list article{padding:1rem;background:white}header{display:flex;justify-content:space-between}header>div{display:grid}header span,.review-list p{color:var(--muted);font-size:.75rem}dl{display:grid;gap:.5rem;margin:1rem 0}dl div{display:flex;justify-content:space-between}dt{color:var(--muted)}dd{margin:0}.review-form{display:grid;gap:.7rem;margin-top:1rem}@media(min-width:700px){.filters{grid-template-columns:240px 200px auto}}@media(min-width:1000px){.review-list{grid-template-columns:1fr 1fr}}</style>

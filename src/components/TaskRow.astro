@@ -16,7 +16,7 @@ const priority = priorityMap[task.priority];
 ---
 
 <article class="task-row">
-  <div class="task-check" aria-hidden="true">{task.status === 'completed' ? '✓' : ''}</div>
+  <div class="task-check" aria-hidden="true">{task.status === 'completed' ? 'âœ“' : ''}</div>
   <div class="task-main">
     <div class="task-heading">
       <a href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`}>{task.title}</a>
@@ -24,13 +24,13 @@ const priority = priorityMap[task.priority];
     </div>
     <div class="task-meta">
       {admin && <span>{task.assignee}</span>}
-      <span>Deadline {formatDate(task.dueDate)}</span>
+      <span>{task.dueDate ? `Deadline ${formatDate(task.dueDate)}` : 'Tanpa deadline'}</span>
       <span>{task.checklistDone}/{task.checklistTotal} checklist</span>
     </div>
     <ProgressBar value={task.progress} />
   </div>
   <strong class="task-progress">{task.progress}%</strong>
-  <a class="task-open" href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`} aria-label={`Buka ${task.title}`}>→</a>
+  <a class="task-open" href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`} aria-label={`Buka ${task.title}`}>â†’</a>
 </article>
 
 <style>

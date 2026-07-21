@@ -1,28 +1,28 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro';
 import TaskRow from '@/components/TaskRow.astro';
-import StatBlock from '@/components/StatBlock.astro';
-import { adminUser, employeeTasks } from '@/lib/demo-data';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
 
-const user = Astro.locals.user ?? adminUser;
-const allTasks = [
-  ...employeeTasks,
-  ...employeeTasks.map((task, index) => ({ ...task, id: `airin-${task.id}`, assignee: 'Airin Frantrishia Lay', progress: Math.max(20, task.progress - 12 + index * 4) })),
-  ...employeeTasks.map((task, index) => ({ ...task, id: `davis-${task.id}`, assignee: 'Davis Ariel', progress: Math.max(5, task.progress - 20 + index * 7) })),
-];
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const q = Astro.url.searchParams.get('q')?.toLowerCase() ?? '';
+const employee = Astro.url.searchParams.get('employee') ?? '';
+const status = Astro.url.searchParams.get('status') ?? '';
+const tasks = (data?.tasks ?? []).filter((row) => (!q || row.title.toLowerCase().includes(q)) && (!employee || row.assignee_id === employee) && (!status || row.status === status));
+const employees = data?.profiles.filter((row) => row.role === 'employee') ?? [];
 ---
 
-<AppLayout title="Kelola tugas" heading="Kelola tugas" description="Buat, tetapkan, dan arsipkan job desk tanpa mengubah progress milik karyawan." role="admin" user={user} activePath="/admin/tasks" isDemo={Astro.locals.isDemo}>
+<AppLayout title="Tugas admin" heading="Tugas" description="Buat, edit, dan pantau progres tugas seluruh tim." role="admin" user={user} activePath="/admin/tasks">
   <a slot="actions" class="button" href="/admin/tasks/new">Buat tugas baru</a>
-  <section class="metrics-grid"><StatBlock label="Tugas aktif" value="9" helper="Untuk 3 karyawan" /><StatBlock label="Mendekati deadline" value="2" helper="Dalam 3 hari" trend="Perlu perhatian" tone="warning" /><StatBlock label="Dalam review" value="2" helper="Menunggu keputusan" trend="Review" /><StatBlock label="Selesai bulan ini" value="17" helper="Seluruh tim" trend="+21%" tone="success" /></section>
-  <section class="panel task-admin-list"><div class="panel-header admin-toolbar"><div><h2>Semua tugas</h2><p>9 tugas aktif.</p></div><form><input class="input" type="search" placeholder="Cari judul atau karyawan..." aria-label="Cari tugas" /><select class="select" aria-label="Filter karyawan"><option>Semua karyawan</option><option>Joshua Wijaya</option><option>Airin Frantrishia Lay</option><option>Davis Ariel</option></select><select class="select" aria-label="Filter status"><option>Semua status</option><option>Dalam proses</option><option>Dalam review</option></select></form></div><div>{allTasks.map((task) => <TaskRow task={task} admin />)}</div></section>
+  {loadError && <div class="alert danger">{loadError}</div>}
+  <section class="panel">
+    <div class="panel-header"><form method="GET" class="filters"><input class="input" name="q" value={q} placeholder="Cari tugas..." /><select class="select" name="employee"><option value="">Semua karyawan</option>{employees.map((row) => <option value={row.id} selected={employee === row.id}>{row.full_name}</option>)}</select><select class="select" name="status"><option value="">Semua status</option>{['draft','not_started','in_progress','in_review','completed','archived'].map((value) => <option value={value} selected={status === value}>{value}</option>)}</select><button class="button secondary">Terapkan</button></form></div>
+    {tasks.length && data ? tasks.map((task) => <TaskRow task={toDashboardTask(task, data)} admin />) : <EmptyState title="Tidak ada tugas" description="Buat tugas baru atau ubah filter." actionLabel="Buat tugas" actionHref="/admin/tasks/new" />}
+  </section>
 </AppLayout>
 
-<style>
-  .task-admin-list { margin-top: 1rem; }
-  .admin-toolbar { align-items: center; flex-wrap: wrap; }
-  .admin-toolbar form { width: 100%; display: flex; flex-wrap: wrap; gap: .5rem; }
-  .admin-toolbar .input { flex: 1 1 220px; }
-  .admin-toolbar .select { flex: 0 1 180px; }
-  @media (min-width: 980px) { .admin-toolbar form { width: auto; } }
-</style>
+<style>.filters{width:100%;display:grid;gap:.6rem}@media(min-width:900px){.filters{grid-template-columns:1fr 220px 190px auto}}</style>

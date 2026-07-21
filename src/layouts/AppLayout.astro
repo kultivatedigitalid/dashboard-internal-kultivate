@@ -11,34 +11,33 @@ interface Props {
   role: AppRole;
   user: AppUser;
   activePath: string;
-  isDemo?: boolean;
 }
 
-const { title, heading, description, role, user, activePath, isDemo = false } = Astro.props;
+const { title, heading, description, role, user, activePath } = Astro.props;
 const logoutResult = Astro.getActionResult(actions.logout);
 if (logoutResult && !logoutResult.error) {
   return Astro.redirect(logoutResult.data.redirectTo);
 }
 
 const employeeNavigation = [
-  { href: '/app', label: 'Dashboard', glyph: '⌂' },
-  { href: '/app/attendance', label: 'Absensi', glyph: '◷' },
-  { href: '/app/tasks', label: 'Tugas', glyph: '✓' },
-  { href: '/app/weekly-report', label: 'Laporan', glyph: '≡' },
-  { href: '/app/allowances', label: 'Tunjangan', glyph: '₫' },
-  { href: '/app/profile', label: 'Profil', glyph: '○' },
+  { href: '/app', label: 'Dashboard', glyph: 'âŒ‚' },
+  { href: '/app/attendance', label: 'Absensi', glyph: 'â—·' },
+  { href: '/app/tasks', label: 'Tugas', glyph: 'âœ“' },
+  { href: '/app/weekly-report', label: 'Laporan', glyph: 'â‰¡' },
+  { href: '/app/allowances', label: 'Tunjangan', glyph: 'â‚«' },
+  { href: '/app/profile', label: 'Profil', glyph: 'â—‹' },
 ];
 
 const adminNavigation = [
-  { href: '/admin', label: 'Dashboard', glyph: '⌂' },
-  { href: '/admin/employees', label: 'Karyawan', glyph: '◎' },
-  { href: '/admin/tasks', label: 'Tugas', glyph: '✓' },
-  { href: '/admin/targets', label: 'Target', glyph: '↗' },
-  { href: '/admin/attendance', label: 'Absensi', glyph: '◷' },
-  { href: '/admin/reports', label: 'Laporan', glyph: '≡' },
-  { href: '/admin/allowances', label: 'Tunjangan', glyph: '₫' },
-  { href: '/admin/evaluations', label: 'Evaluasi', glyph: '◇' },
-  { href: '/admin/settings', label: 'Pengaturan', glyph: '⚙' },
+  { href: '/admin', label: 'Dashboard', glyph: 'âŒ‚' },
+  { href: '/admin/employees', label: 'Karyawan', glyph: 'â—Ž' },
+  { href: '/admin/tasks', label: 'Tugas', glyph: 'âœ“' },
+  { href: '/admin/targets', label: 'Target', glyph: 'â†—' },
+  { href: '/admin/attendance', label: 'Absensi', glyph: 'â—·' },
+  { href: '/admin/reports', label: 'Laporan', glyph: 'â‰¡' },
+  { href: '/admin/allowances', label: 'Tunjangan', glyph: 'â‚«' },
+  { href: '/admin/evaluations', label: 'Evaluasi', glyph: 'â—‡' },
+  { href: '/admin/settings', label: 'Pengaturan', glyph: 'âš™' },
 ];
 
 const navigation = role === 'admin' ? adminNavigation : employeeNavigation;
@@ -46,13 +45,12 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
 ---
 
 <BaseLayout title={title} bodyClass="app-body">
-  {isDemo && <div class="demo-banner">Mode demo lokal · data hanya contoh dan tidak disimpan</div>}
   <div class="app-shell">
     <div class="drawer-backdrop" data-drawer-backdrop></div>
     <aside class="sidebar" data-sidebar aria-label="Navigasi utama">
       <div class="sidebar-head">
         <Logo inverse />
-        <button class="sidebar-close" type="button" data-drawer-close aria-label="Tutup navigasi">×</button>
+        <button class="sidebar-close" type="button" data-drawer-close aria-label="Tutup navigasi">Ã—</button>
       </div>
 
       <div class="workspace-switcher">
@@ -75,28 +73,28 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
         <div class="sidebar-help">
           <strong>Butuh bantuan?</strong>
           <span>Lihat panduan penggunaan dashboard.</span>
-          <a href="/help">Buka panduan <span aria-hidden="true">→</span></a>
+          <a href="/help">Buka panduan <span aria-hidden="true">â†’</span></a>
         </div>
       </div>
     </aside>
 
     <div class="app-main">
       <header class="topbar">
-        <button class="menu-trigger icon-button" type="button" data-drawer-open aria-label="Buka navigasi">☰</button>
+        <button class="menu-trigger icon-button" type="button" data-drawer-open aria-label="Buka navigasi">â˜°</button>
         <div class="topbar-context">
           <span>{role === 'admin' ? 'Admin' : 'Karyawan'}</span>
           <strong>{heading}</strong>
         </div>
         <div class="topbar-tools">
           <a class="topbar-icon" href={role === 'admin' ? '/admin/reports' : '/app/tasks'} aria-label="Lihat item yang membutuhkan perhatian">
-            <span aria-hidden="true">●</span>
+            <span aria-hidden="true">â—</span>
             <i></i>
           </a>
           <details class="user-menu">
             <summary aria-label="Buka menu pengguna">
               <span class="avatar">{user.avatar}</span>
               <span class="user-copy"><strong>{user.fullName}</strong><small>{role === 'admin' ? 'Administrator' : user.employeeCode}</small></span>
-              <span class="chevron" aria-hidden="true">⌄</span>
+              <span class="chevron" aria-hidden="true">âŒ„</span>
             </summary>
             <div class="user-popover">
               <div class="popover-user"><strong>{user.fullName}</strong><span>{user.email}</span></div>

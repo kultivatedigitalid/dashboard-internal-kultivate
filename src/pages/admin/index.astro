@@ -1,114 +1,50 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatBlock from '@/components/StatBlock.astro';
-import ProgressBar from '@/components/ProgressBar.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
-import { adminUser, recentActivity, teamProgress } from '@/lib/demo-data';
-import { calculateProgress } from '@/lib/formatters';
+import EmptyState from '@/components/EmptyState.astro';
+import { loadDashboardData, employeeName } from '@/lib/dashboard-data';
+import { formatDateTime } from '@/lib/formatters';
 
-const user = Astro.locals.user ?? adminUser;
+const user = Astro.locals.user;
+if (!user) return Astro.redirect('/login');
+let loadError = '';
+let data;
+try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
+const employees = data?.profiles.filter((row) => row.role === 'employee') ?? [];
+const pendingSessions = data?.sessions.filter((row) => row.status === 'submitted') ?? [];
+const pendingReports = data?.reports.filter((row) => row.status === 'submitted') ?? [];
+const pendingAllowances = data?.allowances.filter((row) => row.status === 'submitted') ?? [];
+const activeTasks = data?.tasks.filter((row) => !['draft', 'completed', 'archived'].includes(row.status)) ?? [];
+const recent = [
+  ...pendingSessions.map((row) => ({ person: employeeName(data!, row.employee_id), type: 'Absensi', at: row.check_in, href: '/admin/attendance' })),
+  ...pendingReports.map((row) => ({ person: employeeName(data!, row.employee_id), type: 'Laporan', at: row.submitted_at ?? row.week_start, href: '/admin/reports' })),
+  ...pendingAllowances.map((row) => ({ person: employeeName(data!, row.employee_id), type: 'Tunjangan', at: row.submitted_at ?? row.expense_date, href: '/admin/allowances' })),
+].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)).slice(0, 8);
 ---
 
-<AppLayout title="Dashboard admin" heading="Ringkasan tim" description="Pantau progres, kehadiran, dan item yang membutuhkan keputusan Anda." role="admin" user={user} activePath="/admin" isDemo={Astro.locals.isDemo}>
-  <a slot="actions" class="button secondary" href="/admin/targets">Atur target</a>
-  <a slot="actions" class="button" href="/admin/tasks/new">Buat tugas baru</a>
-
-  <section class="admin-brief">
-    <div><span>Senin, 20 Juli 2026</span><h2>Selamat siang, Hans.</h2><p>Ada <strong>5 item</strong> yang menunggu review hari ini.</p></div>
-    <div class="brief-actions"><a href="/admin/attendance"><strong>2</strong><span>Absensi</span><i>→</i></a><a href="/admin/reports"><strong>2</strong><span>Laporan</span><i>→</i></a><a href="/admin/allowances"><strong>1</strong><span>Tunjangan</span><i>→</i></a></div>
+<AppLayout title="Admin dashboard" heading="Dashboard admin" description="Ringkasan operasional dan item yang membutuhkan review." role="admin" user={user} activePath="/admin">
+  <a slot="actions" class="button" href="/admin/tasks/new">Buat tugas</a>
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  <section class="metrics-grid">
+    <StatBlock label="Karyawan aktif" value={String(employees.filter((row) => row.is_active).length)} helper={`${employees.length} total akun`} />
+    <StatBlock label="Tugas aktif" value={String(activeTasks.length)} helper="seluruh tim" />
+    <StatBlock label="Absensi menunggu" value={String(pendingSessions.length)} helper="perlu review" tone={pendingSessions.length ? 'warning' : 'success'} />
+    <StatBlock label="Laporan & tunjangan" value={String(pendingReports.length + pendingAllowances.length)} helper="perlu review" tone={pendingReports.length + pendingAllowances.length ? 'warning' : 'success'} />
   </section>
-
-  <section class="metrics-grid admin-metrics">
-    <StatBlock label="Karyawan aktif" value="3" helper="Seluruh akun aktif" trend="100%" />
-    <StatBlock label="Jam bulan ini" value="368 jam" helper="dari target tim 480 jam" trend="76%" />
-    <StatBlock label="Hadir hari ini" value="2 dari 3" helper="1 belum check-in" trend="Perlu perhatian" tone="warning" />
-    <StatBlock label="Tugas aktif" value="9" helper="2 mendekati deadline" trend="2 deadline" tone="warning" />
-  </section>
-
-  <div class="admin-main-grid">
-    <section class="panel team-progress">
-      <div class="panel-header"><div><h2>Progress target 600 jam</h2><p>Akumulasi dari absensi yang telah disetujui.</p></div><a class="text-link" href="/admin/employees">Detail karyawan</a></div>
-      <div class="progress-table">
-        {teamProgress.map((employee) => {
-          const value = calculateProgress(employee.approvedHours, employee.targetHours);
-          return <article><div class="employee-cell"><span class="avatar">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><a href={`/admin/employees/${employee.id}`}>{employee.name}</a><small>{employee.code}</small></div></div><div class="employee-hours"><strong>{employee.approvedHours}</strong><span>/ {employee.targetHours} jam</span></div><ProgressBar value={value} /><strong class="percent">{value}%</strong></article>;
-        })}
-      </div>
+  <div class="admin-grid">
+    <section class="panel">
+      <div class="panel-header"><div><h2>Antrean review</h2><p>Item terbaru yang belum diproses.</p></div></div>
+      {recent.length ? <div>{recent.map((item) => <a class="queue-row" href={item.href}><div><strong>{item.person}</strong><span>{item.type}</span></div><small>{formatDateTime(item.at)}</small><StatusBadge label="Menunggu" tone="warning" /></a>)}</div> : <EmptyState title="Antrean kosong" description="Tidak ada item yang menunggu review." />}
     </section>
-
-    <section class="panel attendance-today">
-      <div class="panel-header"><div><h2>Kehadiran hari ini</h2><p>Zona waktu Asia/Jakarta.</p></div><a class="text-link" href="/admin/attendance">Lihat semua</a></div>
-      <div class="attendance-list">
-        {teamProgress.map((employee) => <div><span class="avatar">{employee.name.split(' ').map((part) => part[0]).slice(0,2).join('')}</span><div><strong>{employee.name}</strong><small>{employee.attendanceStatus === 'checked_in' ? 'Check-in 08.03 · Kantor' : employee.attendanceStatus === 'completed' ? 'Selesai 17.02 · Remote' : 'Belum ada catatan'}</small></div><StatusBadge label={employee.attendanceStatus === 'checked_in' ? 'Sedang bekerja' : employee.attendanceStatus === 'completed' ? 'Selesai' : 'Belum check-in'} tone={employee.attendanceStatus === 'not_checked_in' ? 'warning' : 'success'} /></div>)}
-      </div>
-    </section>
-  </div>
-
-  <div class="admin-secondary-grid">
-    <section class="panel review-queue">
-      <div class="panel-header"><div><h2>Antrean review</h2><p>Urut dari item yang paling lama menunggu.</p></div></div>
-      <div class="review-list">
-        <a href="/admin/reports"><span class="review-mark report">L</span><div><strong>Laporan minggu ke-29</strong><small>Airin · dikirim 10 menit lalu</small></div><StatusBadge label="Laporan" tone="info" /><i>→</i></a>
-        <a href="/admin/attendance"><span class="review-mark attendance">A</span><div><strong>Absensi 15 Juli</strong><small>Joshua · 7 jam 51 menit</small></div><StatusBadge label="Absensi" tone="warning" /><i>→</i></a>
-        <a href="/admin/allowances"><span class="review-mark allowance">T</span><div><strong>Pengajuan transport</strong><small>Davis · Rp 60.000</small></div><StatusBadge label="Tunjangan" tone="neutral" /><i>→</i></a>
-      </div>
-    </section>
-
-    <section class="panel activity-panel">
-      <div class="panel-header"><div><h2>Aktivitas terbaru</h2><p>Perubahan penting di ruang kerja.</p></div></div>
-      <div class="activity-list">{recentActivity.map((activity) => <div><span></span><p><strong>{activity.person}</strong> {activity.action}<small>{activity.time}</small></p></div>)}</div>
-    </section>
+    <aside class="panel panel-body stack">
+      <h2>Akses cepat</h2>
+      <a class="button secondary" href="/admin/employees">Kelola karyawan</a>
+      <a class="button secondary" href="/admin/attendance">Review absensi</a>
+      <a class="button secondary" href="/admin/reports">Review laporan</a>
+      <a class="button secondary" href="/admin/allowances">Review tunjangan</a>
+    </aside>
   </div>
 </AppLayout>
 
-<style>
-  .admin-brief { display: grid; gap: 1.25rem; padding: clamp(1.2rem, 3vw, 1.65rem); border-radius: var(--radius-card); background: var(--sidebar); color: white; }
-  .admin-brief > div:first-child > span { color: var(--sidebar-muted); font-size: .7rem; }
-  .admin-brief h2 { margin-top: .3rem; font-size: 1.35rem; }
-  .admin-brief p { margin-top: .3rem; color: var(--sidebar-muted); font-size: .8rem; }
-  .admin-brief p strong { color: white; }
-  .brief-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: .55rem; }
-  .brief-actions a { min-width: 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .5rem; padding: .75rem; border: 1px solid oklch(1 0 0 / .12); border-radius: 10px; background: oklch(1 0 0 / .05); }
-  .brief-actions a:hover { background: oklch(1 0 0 / .1); }
-  .brief-actions strong { font-size: 1.1rem; }
-  .brief-actions span { overflow: hidden; color: var(--sidebar-muted); font-size: .68rem; text-overflow: ellipsis; }
-  .brief-actions i { font-style: normal; }
-  .admin-metrics { margin-top: 1rem; }
-  .admin-main-grid, .admin-secondary-grid { display: grid; gap: 1rem; margin-top: 1rem; }
-  .progress-table article { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .65rem 1rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line); }
-  .progress-table article:last-child { border-bottom: 0; }
-  .employee-cell { min-width: 0; display: flex; align-items: center; gap: .7rem; }
-  .employee-cell > div { min-width: 0; display: grid; }
-  .employee-cell a { overflow: hidden; font-size: .82rem; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .employee-cell small { color: var(--muted); font-size: .68rem; }
-  .employee-hours strong, .percent { font-variant-numeric: tabular-nums; }
-  .employee-hours { color: var(--muted); font-size: .7rem; }
-  .employee-hours strong { color: var(--ink); font-size: .82rem; }
-  .progress-table .progress { grid-column: 1 / -1; }
-  .percent { display: none; color: var(--primary); font-size: .75rem; }
-  .attendance-list { display: grid; }
-  .attendance-list > div { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .7rem; padding: .88rem 1.1rem; border-bottom: 1px solid var(--line); }
-  .attendance-list > div:last-child { border-bottom: 0; }
-  .attendance-list > div > div { min-width: 0; display: grid; }
-  .attendance-list strong { font-size: .8rem; }
-  .attendance-list small { overflow: hidden; color: var(--muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
-  .review-list, .activity-list { display: grid; }
-  .review-list > a { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: .7rem; padding: .9rem 1.1rem; border-bottom: 1px solid var(--line); }
-  .review-list > a:hover { background: var(--surface); }
-  .review-list > a:last-child { border-bottom: 0; }
-  .review-mark { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 9px; background: var(--info-soft); color: var(--info); font-weight: 800; }
-  .review-mark.attendance { background: var(--warning-soft); color: var(--warning); }
-  .review-mark.allowance { background: var(--primary-soft); color: var(--primary); }
-  .review-list div { min-width: 0; display: grid; }
-  .review-list strong, .review-list small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .review-list strong { font-size: .8rem; }
-  .review-list small { color: var(--muted); font-size: .68rem; }
-  .review-list i { color: var(--primary); font-style: normal; }
-  .activity-list { padding: .45rem 1.15rem; }
-  .activity-list > div { display: grid; grid-template-columns: auto 1fr; gap: .75rem; padding: .7rem 0; }
-  .activity-list > div > span { width: 8px; height: 8px; margin-top: .4rem; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 4px var(--primary-soft); }
-  .activity-list p { color: var(--ink-soft); font-size: .76rem; }
-  .activity-list small { display: block; margin-top: .15rem; color: var(--muted); }
-  @media (min-width: 700px) { .admin-brief { grid-template-columns: 1fr auto; align-items: center; } .progress-table article { grid-template-columns: minmax(0, 1.2fr) auto minmax(120px, .8fr) auto; } .progress-table .progress { grid-column: auto; } .percent { display: block; } }
-  @media (min-width: 1050px) { .admin-main-grid { grid-template-columns: minmax(0, 1.2fr) minmax(340px, .8fr); } .admin-secondary-grid { grid-template-columns: 1fr 1fr; } }
-</style>
+<style>.metrics-grid{margin-bottom:1rem}.admin-grid{display:grid;gap:1rem}.queue-row{display:grid;grid-template-columns:1fr auto;gap:.5rem;padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.queue-row div{display:grid}.queue-row span,.queue-row small{color:var(--muted);font-size:.72rem}.queue-row :global(.status-badge){grid-column:2}@media(min-width:900px){.admin-grid{grid-template-columns:1.4fr .6fr}}</style>
