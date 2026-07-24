@@ -13,6 +13,7 @@
     "check": "astro check",
     "test": "vitest run",
     "test:watch": "vitest",
+    "deploy": "astro build && wrangler deploy --keep-vars",
     "setup:supabase": "powershell -ExecutionPolicy Bypass -File scripts/setup-supabase.ps1",
     "check:migration": "node scripts/validate-migration.mjs",
     "provision:accounts": "node scripts/provision-required-accounts.mjs"

@@ -1,6 +1,21 @@
+import { env } from 'cloudflare:workers';
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
 import { createClient } from '@supabase/supabase-js';
 import type { APIContext, AstroCookies } from 'astro';
+
+// ─── Runtime binding helpers ──────────────────────────────────────────────────
+// Cloudflare Workers mengekspos env vars melalui `cloudflare:workers` bukan
+// `import.meta.env`. Fungsi-fungsi ini membaca dan men-trim nilai dari binding.
+
+function runtimeEnv(): Record<string, string | undefined> {
+  return env as unknown as Record<string, string | undefined>;
+}
+
+function getRuntimeVar(key: string): string | undefined {
+  return runtimeEnv()[key]?.trim() || undefined;
+}
+
+// ─── Validators ───────────────────────────────────────────────────────────────
 
 function validSupabaseUrl(value?: string): value is string {
   return Boolean(value && /^https:\/\/[a-z0-9]+\.supabase\.co\/?$/i.test(value) && !value.includes('your-project'));
@@ -14,21 +29,30 @@ function validSecretKey(value?: string): value is string {
   return Boolean(value && (value.startsWith('sb_secret_') || value.startsWith('eyJ')) && !value.includes('your_'));
 }
 
+// ─── Public helpers ───────────────────────────────────────────────────────────
+
 export function hasSupabaseConfig(): boolean {
-  return validSupabaseUrl(import.meta.env.PUBLIC_SUPABASE_URL)
-    && validPublishableKey(import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY);
+  return validSupabaseUrl(getRuntimeVar('PUBLIC_SUPABASE_URL'))
+    && validPublishableKey(getRuntimeVar('PUBLIC_SUPABASE_PUBLISHABLE_KEY'));
 }
 
 export function hasSupabaseSecret(): boolean {
-  return validSecretKey(import.meta.env.SUPABASE_SECRET_KEY);
+  return validSecretKey(getRuntimeVar('SUPABASE_SECRET_KEY'));
 }
+
+/** Mengembalikan PUBLIC_SITE_URL dari Cloudflare runtime binding, atau undefined jika tidak disetel. */
+export function getPublicSiteUrl(): string | undefined {
+  return getRuntimeVar('PUBLIC_SITE_URL');
+}
+
+// ─── Client factories ─────────────────────────────────────────────────────────
 
 export function createSupabaseServerClient({
   request,
   cookies,
 }: Pick<APIContext, 'request' | 'cookies'> | { request: Request; cookies: AstroCookies }) {
-  const url = import.meta.env.PUBLIC_SUPABASE_URL;
-  const key = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const url = getRuntimeVar('PUBLIC_SUPABASE_URL');
+  const key = getRuntimeVar('PUBLIC_SUPABASE_PUBLISHABLE_KEY');
   if (!validSupabaseUrl(url) || !validPublishableKey(key)) {
     throw new Error('SUPABASE_NOT_CONFIGURED');
   }
@@ -46,8 +70,8 @@ export function createSupabaseServerClient({
 }
 
 export function createSupabaseOtpVerifier() {
-  const url = import.meta.env.PUBLIC_SUPABASE_URL;
-  const key = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const url = getRuntimeVar('PUBLIC_SUPABASE_URL');
+  const key = getRuntimeVar('PUBLIC_SUPABASE_PUBLISHABLE_KEY');
   if (!validSupabaseUrl(url) || !validPublishableKey(key)) {
     throw new Error('SUPABASE_NOT_CONFIGURED');
   }
@@ -62,8 +86,8 @@ export function createSupabaseOtpVerifier() {
 }
 
 export function createSupabaseServiceClient() {
-  const url = import.meta.env.PUBLIC_SUPABASE_URL;
-  const secret = import.meta.env.SUPABASE_SECRET_KEY;
+  const url = getRuntimeVar('PUBLIC_SUPABASE_URL');
+  const secret = getRuntimeVar('SUPABASE_SECRET_KEY');
   if (!validSupabaseUrl(url) || !validSecretKey(secret)) {
     throw new Error('SUPABASE_SECRET_NOT_CONFIGURED');
   }

@@ -11,7 +11,7 @@ const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 const result = Astro.getActionResult(actions.createEmployee);
 const fieldErrors = isInputError(result?.error) ? result.error.fields : {};
-const errorText = (key: string) => fieldErrors[key]?.join(', ');
+const errorText = (key: keyof typeof fieldErrors) => fieldErrors[key]?.join(', ');
 let loadError = '';
 let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }

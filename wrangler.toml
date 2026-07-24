@@ -1,0 +1,15 @@
+name = "kultivate-digital-id-dashboard"
+compatibility_date = "2025-01-01"
+
+# Catatan: Jangan taruh credential di sini.
+# Set semua variables melalui Cloudflare Dashboard (Settings → Variables and Secrets)
+# atau gunakan perintah berikut untuk secrets:
+#
+#   npx wrangler secret put SUPABASE_SECRET_KEY
+#
+# Variabel PUBLIC_* yang bersifat plain text dapat diset melalui Dashboard
+# (bukan sebagai "secret") agar tidak terhapus saat deploy.
+#
+# File ini hanya menyimpan metadata project (nama, compatibility date).
+# Konfigurasi worker lainnya (main, assets, bindings) di-generate otomatis
+# oleh @astrojs/cloudflare ke dist/server/wrangler.json saat `npm run build`.

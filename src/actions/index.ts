@@ -4,6 +4,7 @@ import {
   createSupabaseOtpVerifier,
   createSupabaseServerClient,
   createSupabaseServiceClient,
+  getPublicSiteUrl,
   hasSupabaseConfig,
   hasSupabaseSecret,
 } from '@/lib/supabase/server';
@@ -235,7 +236,7 @@ export const server = {
     handler: async ({ email }, context) => {
       requireConfigured();
       const supabase = createSupabaseServerClient(context);
-      const siteUrl = import.meta.env.PUBLIC_SITE_URL || new URL(context.request.url).origin;
+      const siteUrl = getPublicSiteUrl() ?? new URL(context.request.url).origin;
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
       });
@@ -646,7 +647,7 @@ export const server = {
         throw new ActionError({ code: 'CONFLICT', message: 'Email tersebut sudah digunakan oleh akun lain.' });
       }
 
-      const siteUrl = import.meta.env.PUBLIC_SITE_URL || new URL(context.request.url).origin;
+      const siteUrl = getPublicSiteUrl() ?? new URL(context.request.url).origin;
       const { data, error } = await service.auth.admin.inviteUserByEmail(email, {
         redirectTo: `${siteUrl}/auth/callback?next=/reset-password`,
         data: { full_name: input.fullName },
