@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@astrojs/vercel": "11.0.3",
+    "@phosphor-icons/web": "2.1.2",
     "@supabase/auth-js": "2.110.7",
     "@supabase/realtime-js": "2.110.7",
     "@supabase/ssr": "0.12.3",

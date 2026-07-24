@@ -3,38 +3,41 @@ import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
 import EmptyState from '@/components/EmptyState.astro';
+import ChangePasswordForm from '@/components/ChangePasswordForm.astro';
 import { loadDashboardData } from '@/lib/dashboard-data';
 import { formatDate } from '@/lib/formatters';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
-const result = Astro.getActionResult(actions.updateProfile);
+const profileResult = Astro.getActionResult(actions.updateProfile);
+const passwordResult = Astro.getActionResult(actions.changePassword);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const profile = data?.profiles.find((row) => row.id === user.id);
 const evaluations = data?.evaluations.filter((row) => row.employee_id === user.id && row.is_published && row.visibility === 'employee') ?? [];
 ---
 
-<AppLayout title="Profil" heading="Profil saya" description="Informasi akun dan evaluasi yang dipublikasikan." role="employee" user={user} activePath="/app/profile">
-  {loadError && <div class="alert danger">{loadError}</div>}
-  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
-  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+<AppLayout title="Profil" heading="Profil saya" description="Informasi akun, keamanan password, dan evaluasi yang dipublikasikan." role="employee" user={user} activePath="/app/profile">
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {profileResult?.error && <div class="alert danger" role="alert">{profileResult.error.message}</div>}
+  {profileResult && !profileResult.error && <div class="alert success" role="status">{profileResult.data.message}</div>}
 
   <div class="profile-grid">
     <section class="panel panel-body">
       <div class="identity"><span class="avatar large">{user.avatar}</span><div><h2>{user.fullName}</h2><p>{user.employeeCode ?? 'Tanpa kode'}</p><StatusBadge label={profile?.is_active === false ? 'Nonaktif' : 'Aktif'} tone={profile?.is_active === false ? 'danger' : 'success'} /></div></div>
-      <dl><div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Bergabung</dt><dd>{profile ? formatDate(profile.joined_at) : '—'}</dd></div><div><dt>Zona waktu</dt><dd>{data?.settings.timezone ?? 'Asia/Jakarta'}</dd></div></dl>
+      <dl><div><dt>Email</dt><dd>{user.email}</dd></div><div><dt>Bergabung</dt><dd>{profile ? formatDate(profile.joined_at) : 'Belum tersedia'}</dd></div><div><dt>Zona waktu</dt><dd>{data?.settings.timezone ?? 'Asia/Jakarta'}</dd></div></dl>
     </section>
     <section class="panel">
       <div class="panel-header"><div><h2>Informasi profil</h2><p>Nama, email, dan kode dikelola admin.</p></div></div>
       <form method="POST" action={actions.updateProfile} class="panel-body stack">
-        <label class="field">Nama<input class="input" value={user.fullName} disabled /></label>
-        <label class="field">Email<input class="input" value={user.email} disabled /></label>
-        <label class="field">URL portofolio<input class="input" name="portfolioUrl" type="url" value={profile?.portfolio_url ?? ''} placeholder="https://" /></label>
+        <label class="field"><span class="field-label">Nama</span><input class="input" value={user.fullName} disabled /></label>
+        <label class="field"><span class="field-label">Email</span><input class="input" value={user.email} disabled /></label>
+        <label class="field"><span class="field-label">URL portofolio</span><input class="input" name="portfolioUrl" type="url" value={profile?.portfolio_url ?? ''} placeholder="https://" /></label>
         <button class="button" type="submit">Simpan perubahan</button>
       </form>
     </section>
+    <ChangePasswordForm result={passwordResult} />
     <section class="panel evaluations" id="evaluations">
       <div class="panel-header"><div><h2>Evaluasi</h2><p>Hanya evaluasi yang dipublikasikan kepada Anda.</p></div></div>
       {evaluations.length ? <div>{evaluations.map((item) => <article><div><strong>{item.title}</strong>{item.score && <StatusBadge label={`${item.score}/5`} tone="success" />}</div><p>{item.notes}</p><small>{item.published_at ? formatDate(item.published_at) : formatDate(item.created_at)}</small></article>)}</div> : <EmptyState title="Belum ada evaluasi" description="Evaluasi admin yang dipublikasikan akan tampil di sini." />}
@@ -42,4 +45,4 @@ const evaluations = data?.evaluations.filter((row) => row.employee_id === user.i
   </div>
 </AppLayout>
 
-<style>.profile-grid{display:grid;gap:1rem}.identity{display:flex;gap:1rem;align-items:center}.identity p{margin:.25rem 0 .5rem;color:var(--muted)}dl{display:grid;gap:.7rem;margin-top:1.2rem}dl div{display:flex;justify-content:space-between}dt{color:var(--muted)}dd{margin:0}.evaluations{grid-column:1/-1}.evaluations article{padding:1rem 1.2rem;border-bottom:1px solid var(--line)}.evaluations article>div{display:flex;justify-content:space-between}.evaluations p{margin:.6rem 0;color:var(--muted)}@media(min-width:900px){.profile-grid{grid-template-columns:.7fr 1.3fr}}</style>
+<style>.profile-grid{display:grid;gap:1rem}.identity{display:flex;gap:1rem;align-items:center}.identity p{margin:.25rem 0 .5rem;color:var(--muted)}dl{display:grid;gap:.7rem;margin-top:1.2rem}dl div{display:flex;justify-content:space-between}dt{color:var(--muted)}dd{margin:0}.evaluations{grid-column:1/-1}.evaluations article{padding:1rem 1.2rem;border-bottom:1px solid var(--line)}.evaluations article>div{display:flex;justify-content:space-between}.evaluations p{margin:.6rem 0;color:var(--muted)}@media(min-width:900px){.profile-grid{grid-template-columns:.7fr 1.3fr}.profile-grid>:global(.password-panel){grid-column:1/-1}}</style>

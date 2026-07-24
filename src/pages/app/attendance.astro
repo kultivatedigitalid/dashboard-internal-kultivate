@@ -12,7 +12,7 @@ if (!user) return Astro.redirect('/login');
 const checkInResult = Astro.getActionResult(actions.checkIn);
 const checkOutResult = Astro.getActionResult(actions.checkOut);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const sessions = data?.sessions ?? [];
 const today = sessions.find((row) => row.work_date === jakartaDate());
@@ -40,8 +40,8 @@ const statusLabel = { draft: 'Aktif', submitted: 'Menunggu review', approved: 'D
       </form>
     ) : !today.check_out ? (
       <form method="POST" action={actions.checkOut} class="stack">
-        <label class="field">Istirahat (menit)<input class="input" name="breakMinutes" type="number" min="0" max="1440" value="60" required /></label>
-        <label class="field">Catatan aktivitas<textarea class="textarea" name="notes" maxlength="1000" required>{today.activity_note ?? ''}</textarea></label>
+        <label class="field"><span class="field-label">Istirahat (menit) <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="breakMinutes" type="number" min="0" max="1440" value="60" required /></label>
+        <label class="field"><span class="field-label">Catatan aktivitas <span class="required-mark" aria-hidden="true">*</span></span><textarea class="textarea" name="notes" maxlength="1000" required>{today.activity_note ?? ''}</textarea></label>
         <button class="button" type="submit">Check-out dan kirim review</button>
       </form>
     ) : <StatusBadge label={statusLabel[today.status]} tone={today.status === 'approved' ? 'success' : today.status === 'rejected' ? 'danger' : 'warning'} />}

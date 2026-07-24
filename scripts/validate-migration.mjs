@@ -1,15 +1,15 @@
 import fs from 'node:fs';
-import path from 'node:path';
+
 import Module from 'pg-query-emscripten';
 
 const migrationsDir = new URL('../supabase/migrations/', import.meta.url);
 const migrationFiles = fs.readdirSync(migrationsDir)
   .filter((file) => file.endsWith('.sql'))
   .sort();
-const parser = await new Module();
 let sql = '';
 
 for (const file of migrationFiles) {
+  const parser = await new Module();
   const migrationSql = fs.readFileSync(new URL(file, migrationsDir), 'utf8');
   const result = parser.parse(migrationSql);
   if (result.error) {
@@ -27,9 +27,21 @@ const requiredSecurityFragments = [
   "bucket_id = 'work-evidence'",
   'revoke all on all tables in schema public from anon',
   'private.login_otp_challenges',
-  'begin_first_login_otp',
-  'consume_first_login_otp_attempt',
-  'first_login_verified_at is not null',
+  'private.login_otp_verifications',
+  'is_current_session_otp_verified',
+  'begin_login_otp',
+  'consume_login_otp_attempt',
+  'complete_login_otp',
+  "auth.jwt() ->> 'session_id'",
+  'grant execute on function public.complete_login_otp(uuid, uuid) to service_role',
+  'create table public.task_assignees',
+  'alter table public.task_assignees enable row level security',
+  'create policy task_assignees_select',
+  'private.is_task_assignee',
+  'public.admin_delete_task',
+  'public.update_task_progress(uuid, integer)',
+  'drop table if exists public.allowances cascade',
+  'drop policy if exists evidence_delete on storage.objects',
 ];
 
 for (const fragment of requiredSecurityFragments) {

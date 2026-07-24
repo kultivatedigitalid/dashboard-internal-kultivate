@@ -1,42 +1,29 @@
 ---
 import { actions, isInputError } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
+import TaskFormFields from '@/components/TaskFormFields.astro';
 import { loadDashboardData } from '@/lib/dashboard-data';
-import { jakartaDate } from '@/lib/dates';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 const result = Astro.getActionResult(actions.createTask);
 if (result && !result.error) return Astro.redirect(result.data.redirectTo);
-const errors = isInputError(result?.error) ? result.error.fields : {};
+const fieldErrors = isInputError(result?.error) ? result.error.fields : {};
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const employees = data?.profiles.filter((row) => row.role === 'employee' && row.is_active) ?? [];
 ---
 
-<AppLayout title="Tugas baru" heading="Buat tugas" description="Tetapkan hasil, PIC, deadline, dan checklist." role="admin" user={user} activePath="/admin/tasks">
+<AppLayout title="Tugas baru" heading="Buat tugas" description="Tetapkan pekerjaan, penanggung jawab, priority, dan deadline." role="admin" user={user} activePath="/admin/tasks">
   <a slot="actions" class="button secondary" href="/admin/tasks">Batal</a>
-  {loadError && <div class="alert danger">{loadError}</div>}
-  {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
-  <form method="POST" action={actions.createTask} class="task-form">
-    <section class="panel panel-body stack">
-      <label class="field">Judul<input class="input" name="title" minlength="3" required />{errors.title && <span class="field-error">{errors.title.join(', ')}</span>}</label>
-      <label class="field">Deskripsi<textarea class="textarea tall" name="description" maxlength="5000"></textarea></label>
-      <div class="split">
-        <label class="field">Karyawan<select class="select" name="assigneeId" required><option value="">Pilih karyawan</option>{employees.map((row) => <option value={row.id}>{row.full_name}</option>)}</select></label>
-        <label class="field">Prioritas<select class="select" name="priority"><option value="medium">Sedang</option><option value="high">Tinggi</option><option value="urgent">Mendesak</option><option value="low">Rendah</option></select></label>
-        <label class="field">Mulai<input class="input" name="startDate" type="date" value={jakartaDate()} /></label>
-        <label class="field">Deadline<input class="input" name="dueDate" type="date" /></label>
-        <label class="field">Estimasi jam<input class="input" name="estimateHours" type="number" min="0" step=".5" value="0" required /></label>
-      </div>
-    </section>
-    <aside class="panel panel-body stack">
-      <label class="field">Checklist <small>satu item per baris</small><textarea class="textarea tall" name="checklist" placeholder="Riset kebutuhan&#10;Implementasi&#10;Uji hasil"></textarea></label>
-      <button class="button secondary" name="status" value="draft" type="submit">Simpan draft</button>
-      <button class="button" name="status" value="not_started" type="submit">Publikasikan tugas</button>
-    </aside>
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {result?.error && !isInputError(result.error) && <div class="alert danger" role="alert">{result.error.message}</div>}
+  {result?.error && isInputError(result.error) && <div class="alert danger" role="alert">Periksa field yang ditandai lalu kirim kembali.</div>}
+  <form method="POST" action={actions.createTask} class="stack">
+    <TaskFormFields employees={employees} fieldErrors={fieldErrors} />
+    <div class="form-actions"><a class="button secondary" href="/admin/tasks">Batal</a><button class="button" type="submit" disabled={!employees.length}><i class="ph ph-plus" aria-hidden="true"></i>Buat tugas</button></div>
   </form>
 </AppLayout>
 
-<style>.task-form{display:grid;gap:1rem}.split{display:grid;gap:1rem}.tall{min-height:150px}@media(min-width:760px){.split{grid-template-columns:1fr 1fr}}@media(min-width:960px){.task-form{grid-template-columns:1.4fr .6fr}}</style>
+<style>.form-actions{display:flex;justify-content:flex-end;gap:.65rem;padding-top:.25rem}</style>

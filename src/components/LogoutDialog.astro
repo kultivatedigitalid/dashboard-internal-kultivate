@@ -1,0 +1,180 @@
+---
+interface Props {
+  triggerLabel?: string;
+  triggerClass?: string;
+  dialogId?: string;
+}
+
+const {
+  triggerLabel = 'Keluar',
+  triggerClass = 'logout-trigger',
+  dialogId = 'logout-dialog',
+} = Astro.props;
+---
+
+<button
+  class={triggerClass}
+  type="button"
+  data-logout-open={dialogId}
+  aria-haspopup="dialog"
+>
+  <i class="ph ph-sign-out" aria-hidden="true"></i>
+  <span>{triggerLabel}</span>
+</button>
+
+<dialog class="confirm-dialog" id={dialogId} data-logout-dialog>
+  <div class="confirm-dialog__panel">
+    <div class="confirm-dialog__icon" aria-hidden="true">
+      <i class="ph ph-sign-out"></i>
+    </div>
+    <div class="confirm-dialog__copy">
+      <h2>Keluar dari dashboard?</h2>
+      <p>Sesi pada perangkat ini akan diakhiri. Anda perlu memasukkan password dan OTP saat login kembali.</p>
+    </div>
+    <div class="confirm-dialog__actions">
+      <form method="dialog">
+        <button class="button secondary" value="cancel">Tetap di dashboard</button>
+      </form>
+      <form method="POST" action="/auth/logout">
+        <button class="button danger" type="submit">
+          <i class="ph ph-sign-out" aria-hidden="true"></i>
+          Ya, keluar
+        </button>
+      </form>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-logout-open]').forEach((trigger) => {
+    if (trigger.dataset.logoutBound === 'true') return;
+    trigger.dataset.logoutBound = 'true';
+
+    trigger.addEventListener('click', () => {
+      const dialogId = trigger.dataset.logoutOpen;
+      const dialog = dialogId ? document.getElementById(dialogId) : null;
+      if (dialog instanceof HTMLDialogElement) dialog.showModal();
+    });
+  });
+
+  document.querySelectorAll<HTMLDialogElement>('[data-logout-dialog]').forEach((dialog) => {
+    if (dialog.dataset.logoutBound === 'true') return;
+    dialog.dataset.logoutBound = 'true';
+
+    dialog.addEventListener('click', (event) => {
+      if (event.target === dialog) dialog.close('cancel');
+    });
+  });
+</script>
+
+<style is:global>
+  .logout-trigger {
+    width: 100%;
+    min-height: 40px;
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    padding: .45rem .65rem;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--danger);
+    font-size: .8rem;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 160ms var(--ease-out), transform 120ms var(--ease-out);
+  }
+
+  .logout-trigger:hover {
+    background: var(--danger-soft);
+  }
+
+  .logout-trigger:active {
+    transform: scale(.98);
+  }
+
+  .confirm-dialog {
+    width: min(440px, calc(100vw - 2rem));
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-card);
+    background: transparent;
+    color: var(--ink);
+    overflow: visible;
+  }
+
+  .confirm-dialog::backdrop {
+    background: oklch(0.08 0.01 110 / .58);
+    backdrop-filter: blur(3px);
+  }
+
+  .confirm-dialog__panel {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-card);
+    background: var(--bg);
+    box-shadow: 0 8px 8px oklch(0.2 0.02 110 / .08);
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    transition:
+      opacity 180ms var(--ease-out),
+      transform 180ms var(--ease-out);
+  }
+
+  .confirm-dialog__icon {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 1.2rem;
+  }
+
+  .confirm-dialog__copy h2 {
+    font-size: 1rem;
+  }
+
+  .confirm-dialog__copy p {
+    margin-top: .35rem;
+    color: var(--muted);
+    font-size: .82rem;
+  }
+
+  .confirm-dialog__actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: .6rem;
+    margin-top: .25rem;
+  }
+
+  .confirm-dialog__actions form {
+    display: contents;
+  }
+
+  @starting-style {
+    .confirm-dialog[open] .confirm-dialog__panel {
+      opacity: 0;
+      transform: translateY(8px) scale(.98);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .confirm-dialog__panel {
+      transform: none;
+      transition: opacity 120ms linear;
+    }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .confirm-dialog::backdrop {
+      backdrop-filter: none;
+    }
+  }
+</style>

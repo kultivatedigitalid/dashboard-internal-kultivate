@@ -9,7 +9,7 @@ const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 const result = Astro.getActionResult(actions.createAdmin);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const admins = (data?.profiles ?? []).filter((profile) => profile.role === 'admin');
 ---
@@ -22,8 +22,8 @@ const admins = (data?.profiles ?? []).filter((profile) => profile.role === 'admi
   <section class="panel admin-create">
     <div class="panel-header"><div><h2>Tambah Admin</h2><p>Admin baru menerima email undangan, lalu wajib menyelesaikan OTP pada login pertama.</p></div></div>
     <form method="POST" action={actions.createAdmin} class="panel-body admin-form" onsubmit="return confirm('Buat akun admin baru dengan akses penuh?')">
-      <label class="field">Nama lengkap<input class="input" name="fullName" minlength="2" maxlength="120" required /></label>
-      <label class="field">Alamat Gmail<input class="input" name="email" type="email" pattern="[a-zA-Z0-9._%+\-]+@gmail\.com" placeholder="nama@gmail.com" required /></label>
+      <label class="field"><span class="field-label">Nama lengkap <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="fullName" minlength="2" maxlength="120" required /></label>
+      <label class="field"><span class="field-label">Alamat Gmail <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="email" type="email" pattern="[a-zA-Z0-9._%+\-]+@gmail\.com" placeholder="nama@gmail.com" required /></label>
       <input type="hidden" name="confirmation" value="confirmed" />
       <button class="button" type="submit">Konfirmasi dan buat admin</button>
     </form>

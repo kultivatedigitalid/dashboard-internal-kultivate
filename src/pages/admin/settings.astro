@@ -2,32 +2,34 @@
 import { actions } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
+import ChangePasswordForm from '@/components/ChangePasswordForm.astro';
 import { loadDashboardData } from '@/lib/dashboard-data';
 import { hasSupabaseConfig, hasSupabaseSecret } from '@/lib/supabase/server';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
-const result = Astro.getActionResult(actions.updateWorkspaceSettings);
+const settingsResult = Astro.getActionResult(actions.updateWorkspaceSettings);
+const passwordResult = Astro.getActionResult(actions.changePassword);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const settings = data?.settings;
 ---
 
-<AppLayout title="Pengaturan" heading="Pengaturan" description="Konfigurasi workspace, target default, dan status keamanan." role="admin" user={user} activePath="/admin/settings">
-  {loadError && <div class="alert danger">{loadError}</div>}
-  {result?.error && <div class="alert danger">{result.error.message}</div>}
-  {result && !result.error && <div class="alert success">{result.data.message}</div>}
+<AppLayout title="Pengaturan" heading="Pengaturan" description="Konfigurasi workspace, keamanan akun, dan status integrasi." role="admin" user={user} activePath="/admin/settings">
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {settingsResult?.error && <div class="alert danger" role="alert">{settingsResult.error.message}</div>}
+  {settingsResult && !settingsResult.error && <div class="alert success" role="status">{settingsResult.data.message}</div>}
   <div class="settings-grid">
     <form method="POST" action={actions.updateWorkspaceSettings} class="panel">
       <div class="panel-header"><div><h2>Workspace dan target</h2><p>Nilai default untuk seluruh tim.</p></div></div>
       <div class="panel-body stack">
-        <label class="field">Nama workspace<input class="input" name="workspaceName" value={settings?.workspace_name ?? 'Kultivate Digital ID'} required /></label>
-        <label class="field">Zona waktu<select class="select" name="timezone"><option value="Asia/Jakarta">Asia/Jakarta</option></select></label>
+        <label class="field"><span class="field-label">Nama workspace <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="workspaceName" value={settings?.workspace_name ?? 'Kultivate Digital ID'} required /></label>
+        <label class="field"><span class="field-label">Zona waktu <span class="required-mark" aria-hidden="true">*</span></span><select class="select" name="timezone" required><option value="Asia/Jakarta">Asia/Jakarta</option></select></label>
         <div class="three">
-          <label class="field">Target mingguan<input class="input" name="weeklyTarget" type="number" min="0" step=".5" value={settings?.weekly_target_hours ?? 40} /></label>
-          <label class="field">Target bulanan<input class="input" name="monthlyTarget" type="number" min="0" step=".5" value={settings?.monthly_target_hours ?? 160} /></label>
-          <label class="field">Target keseluruhan<input class="input" name="overallTarget" type="number" min="0" step=".5" value={settings?.overall_target_hours ?? 600} /></label>
+          <label class="field"><span class="field-label">Target mingguan <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="weeklyTarget" type="number" min="0" step=".5" value={settings?.weekly_target_hours ?? 40} required /></label>
+          <label class="field"><span class="field-label">Target bulanan <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="monthlyTarget" type="number" min="0" step=".5" value={settings?.monthly_target_hours ?? 160} required /></label>
+          <label class="field"><span class="field-label">Target keseluruhan <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="overallTarget" type="number" min="0" step=".5" value={settings?.overall_target_hours ?? 600} required /></label>
         </div>
         <button class="button" type="submit">Simpan pengaturan</button>
       </div>
@@ -35,13 +37,14 @@ const settings = data?.settings;
     <section class="panel">
       <div class="panel-header"><div><h2>Pemeriksaan keamanan</h2></div></div>
       <div class="security-list">
-        <div><span>Supabase URL & publishable key</span><StatusBadge label={hasSupabaseConfig() ? 'Dikonfigurasi' : 'Belum'} tone={hasSupabaseConfig() ? 'success' : 'danger'} /></div>
+        <div><span>Supabase URL dan publishable key</span><StatusBadge label={hasSupabaseConfig() ? 'Dikonfigurasi' : 'Belum'} tone={hasSupabaseConfig() ? 'success' : 'danger'} /></div>
         <div><span>Secret key untuk invite/admin</span><StatusBadge label={hasSupabaseSecret() ? 'Dikonfigurasi' : 'Belum'} tone={hasSupabaseSecret() ? 'success' : 'warning'} /></div>
         <div><span>Role dari app_metadata</span><StatusBadge label="Aktif" tone="success" /></div>
         <div><span>RLS dan private bucket</span><StatusBadge label={loadError ? 'Perlu migration' : 'Terhubung'} tone={loadError ? 'warning' : 'success'} /></div>
       </div>
     </section>
+    <ChangePasswordForm result={passwordResult} />
   </div>
 </AppLayout>
 
-<style>.settings-grid{display:grid;gap:1rem}.three{display:grid;gap:1rem}.security-list>div{display:flex;justify-content:space-between;gap:1rem;padding:1rem;border-bottom:1px solid var(--line)}@media(min-width:760px){.three{grid-template-columns:repeat(3,1fr)}}@media(min-width:960px){.settings-grid{grid-template-columns:1.3fr .7fr}}</style>
+<style>.required-mark{color:var(--danger);font-weight:800}.settings-grid{display:grid;gap:1rem}.three{display:grid;gap:1rem}.security-list>div{display:flex;justify-content:space-between;gap:1rem;padding:1rem;border-bottom:1px solid var(--line)}.settings-grid>:global(.password-panel){grid-column:1/-1}@media(min-width:760px){.three{grid-template-columns:repeat(3,1fr)}}@media(min-width:960px){.settings-grid{grid-template-columns:1.3fr .7fr}}</style>

@@ -1,37 +1,40 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro';
-import TaskRow from '@/components/TaskRow.astro';
-import EmptyState from '@/components/EmptyState.astro';
+import TaskTable from '@/components/TaskTable.astro';
 import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
-const q = Astro.url.searchParams.get('q')?.toLowerCase() ?? '';
-const status = Astro.url.searchParams.get('status') ?? '';
-const tasks = (data?.tasks ?? []).filter((task) => (!q || task.title.toLowerCase().includes(q)) && (!status || task.status === status));
+
+const params = Astro.url.searchParams;
+const filters = {
+  q: params.get('q')?.trim().toLowerCase() ?? '',
+  priority: params.get('priority') ?? '',
+  employee: params.get('employee')?.trim().toLowerCase() ?? '',
+  task: params.get('task')?.trim().toLowerCase() ?? '',
+  status: params.get('status') ?? '',
+};
+const priorityLabels = { urgent: 'urgent', todo: 'to-do' } as const;
+const statusLabels = { not_started: 'belum mulai', in_progress: 'proses', completed: 'selesai' } as const;
+const allTasks = data ? data.tasks.map((task) => toDashboardTask(task, data!)) : [];
+const priorityRank = { urgent: 0, todo: 1 } as const;
+const tasks = allTasks.filter((task) => {
+  const employees = task.assignees.join(', ').toLowerCase();
+  const searchable = [task.title, task.projectDescription, employees, priorityLabels[task.priority], statusLabels[task.status]].join(' ').toLowerCase();
+  return (!filters.q || searchable.includes(filters.q))
+    && (!filters.priority || task.priority === filters.priority)
+    && (!filters.employee || employees.includes(filters.employee))
+    && (!filters.task || task.title.toLowerCase().includes(filters.task))
+    && (!filters.status || task.status === filters.status);
+}).sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title));
+const hasFilters = Object.values(filters).some(Boolean);
 ---
 
-<AppLayout title="Tugas" heading="Tugas saya" description="Perbarui checklist, progres, tautan, dan bukti kerja." role="employee" user={user} activePath="/app/tasks">
+<AppLayout title="Tugas" heading="Tugas" description="Lihat detail tugas dan perbarui progress pekerjaan Anda." role="employee" user={user} activePath="/app/tasks">
   {loadError && <div class="alert danger" role="alert">{loadError}</div>}
-  <section class="panel">
-    <div class="panel-header">
-      <form method="GET" class="filters">
-        <input class="input" name="q" type="search" value={q} placeholder="Cari tugas..." />
-        <select class="select" name="status">
-          <option value="">Semua status</option>
-          <option value="not_started" selected={status === 'not_started'}>Belum dimulai</option>
-          <option value="in_progress" selected={status === 'in_progress'}>Dalam proses</option>
-          <option value="in_review" selected={status === 'in_review'}>Dalam review</option>
-          <option value="completed" selected={status === 'completed'}>Selesai</option>
-        </select>
-        <button class="button secondary" type="submit">Terapkan</button>
-      </form>
-    </div>
-    {tasks.length && data ? tasks.map((task) => <TaskRow task={toDashboardTask(task, data)} />) : <EmptyState title="Tidak ada tugas" description="Belum ada tugas yang cocok dengan filter." />}
-  </section>
+  {params.get('updated') === 'success' && <div class="alert success" role="status">Progress berhasil diperbarui.</div>}
+  <TaskTable tasks={tasks} searchPath="/app/tasks" filters={filters} hasFilters={hasFilters} />
 </AppLayout>
-
-<style>.filters{width:100%;display:grid;gap:.6rem}@media(min-width:700px){.filters{grid-template-columns:1fr 220px auto}}</style>

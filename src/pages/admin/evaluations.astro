@@ -24,11 +24,11 @@ const evaluations = data?.evaluations.filter((row) => !selectedEmployee || row.e
   <section class="panel">
     <div class="panel-header"><div><h2>Evaluasi baru</h2></div></div>
     <form method="POST" action={actions.createEvaluation} class="panel-body evaluation-form">
-      <label class="field">Karyawan<select class="select" name="employeeId" required><option value="">Pilih karyawan</option>{employees.map((row) => <option value={row.id} selected={selectedEmployee === row.id}>{row.full_name}</option>)}</select></label>
+      <label class="field"><span class="field-label">Karyawan <span class="required-mark" aria-hidden="true">*</span></span><select class="select" name="employeeId" required><option value="">Pilih karyawan</option>{employees.map((row) => <option value={row.id} selected={selectedEmployee === row.id}>{row.full_name}</option>)}</select></label>
       <label class="field">Nilai<select class="select" name="score"><option value="">Tanpa nilai</option>{[5,4,3,2,1].map((value) => <option value={value}>{value}</option>)}</select></label>
       <label class="field">Visibilitas<select class="select" name="visibility"><option value="employee">Terlihat karyawan</option><option value="admin">Admin saja</option></select></label>
-      <label class="field wide">Judul<input class="input" name="title" required /></label>
-      <label class="field wide">Catatan<textarea class="textarea tall" name="notes" required></textarea></label>
+      <label class="field wide"><span class="field-label">Judul <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="title" required /></label>
+      <label class="field wide"><span class="field-label">Catatan <span class="required-mark" aria-hidden="true">*</span></span><textarea class="textarea tall" name="notes" required></textarea></label>
       <div class="cluster wide"><button class="button secondary" name="intent" value="draft">Simpan draft</button><button class="button" name="intent" value="publish">Publikasikan</button></div>
     </form>
   </section>

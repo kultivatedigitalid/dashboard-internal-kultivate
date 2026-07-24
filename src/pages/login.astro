@@ -2,6 +2,7 @@
 import { actions, isInputError } from 'astro:actions';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Logo from '@/components/Logo.astro';
+import PasswordField from '@/components/PasswordField.astro';
 
 if (Astro.locals.user) {
   const destination = Astro.locals.otpRequired
@@ -14,13 +15,15 @@ const result = Astro.getActionResult(actions.login);
 if (result && !result.error) return Astro.redirect(result.data.redirectTo);
 const inputErrors = isInputError(result?.error) ? result.error.fields : {};
 const queryNotice =
-  Astro.url.searchParams.get('password') === 'updated'
-    ? { tone: 'success', message: 'Password berhasil diperbarui. Silakan masuk kembali.' }
-    : Astro.url.searchParams.get('error') === 'config'
-      ? { tone: 'danger', message: 'Supabase belum dikonfigurasi. Jalankan npm run setup:supabase.' }
-      : Astro.url.searchParams.get('error') === 'inactive'
-        ? { tone: 'danger', message: 'Akun dinonaktifkan. Hubungi administrator.' }
-        : null;
+  Astro.url.searchParams.get('logout') === 'success'
+    ? { tone: 'success', message: 'Anda berhasil keluar. Sampai jumpa kembali.' }
+    : Astro.url.searchParams.get('password') === 'updated'
+      ? { tone: 'success', message: 'Password berhasil diperbarui. Silakan masuk kembali.' }
+      : Astro.url.searchParams.get('error') === 'config'
+        ? { tone: 'danger', message: 'Supabase belum dikonfigurasi. Jalankan npm run setup:supabase.' }
+        : Astro.url.searchParams.get('error') === 'inactive'
+          ? { tone: 'danger', message: 'Akun dinonaktifkan. Hubungi administrator.' }
+          : null;
 ---
 
 <BaseLayout title="Masuk" bodyClass="auth-body">
@@ -32,7 +35,7 @@ const queryNotice =
         <h1>Setiap progres punya tempat yang jelas.</h1>
         <p>Pantau jam kerja, tugas, laporan, dan evaluasi tim tanpa berpindah aplikasi.</p>
       </div>
-      <small>Kultivate Digital ID · Asia/Jakarta</small>
+      <small>Kultivate Digital ID, Asia/Jakarta</small>
     </section>
 
     <section class="auth-form-wrap">
@@ -41,21 +44,19 @@ const queryNotice =
         <header>
           <span>Selamat datang kembali</span>
           <h2>Masuk ke dashboard</h2>
-          <p>Gunakan akun yang telah dibuat oleh administrator.</p>
+          <p>Masukkan email dan password. Kode OTP akan dikirim untuk memverifikasi sesi ini.</p>
         </header>
         {queryNotice && <div class:list={['alert', queryNotice.tone]} role="status">{queryNotice.message}</div>}
         {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
         <form method="POST" action={actions.login}>
-          <label class="field">Email
-            <input class="input" name="email" type="email" autocomplete="email" placeholder="nama@gmail.com" required aria-describedby={inputErrors.email ? 'email-error' : undefined} />
+          <label class="field">
+            <span class="field-label">Email <span class="required-mark" aria-hidden="true">*</span></span>
+            <input class="input" name="email" type="email" autocomplete="email" placeholder="nama@gmail.com" required aria-invalid={Boolean(inputErrors.email)} aria-describedby={inputErrors.email ? 'email-error' : undefined} />
             {inputErrors.email && <span class="field-error" id="email-error">{inputErrors.email.join(', ')}</span>}
           </label>
-          <label class="field">Password
-            <input class="input" name="password" type="password" autocomplete="current-password" minlength="8" required aria-describedby={inputErrors.password ? 'password-error' : undefined} />
-            {inputErrors.password && <span class="field-error" id="password-error">{inputErrors.password.join(', ')}</span>}
-          </label>
+          <PasswordField label="Password" name="password" autocomplete="current-password" error={inputErrors.password?.join(', ')} />
           <div class="form-meta"><a href="/forgot-password">Lupa password?</a></div>
-          <button class="button" type="submit">Masuk ke dashboard</button>
+          <button class="button" type="submit"><i class="ph ph-sign-in" aria-hidden="true"></i>Masuk dan kirim OTP</button>
         </form>
         <p class="auth-note">Belum memiliki akun? Hubungi administrator.</p>
       </div>
@@ -64,5 +65,5 @@ const queryNotice =
 </BaseLayout>
 
 <style is:global>
-  .auth-body{background:white}.auth-shell{min-height:100dvh;display:grid}.auth-story{display:none;background:var(--sidebar);color:white;padding:clamp(2rem,5vw,5rem);flex-direction:column;justify-content:space-between}.auth-story>div{max-width:650px}.story-status{display:block;margin-bottom:1.2rem;color:var(--sidebar-muted);font-size:.78rem;font-weight:700}.auth-story h1{max-width:13ch;font-size:clamp(3rem,5vw,5.2rem);line-height:.98;letter-spacing:-.04em}.auth-story p{max-width:50ch;margin-top:1.4rem;color:var(--sidebar-muted)}.auth-form-wrap{min-height:100dvh;display:flex;flex-direction:column;padding:1.25rem}.mobile-logo{padding:.5rem 0 2rem}.auth-card{width:min(100%,430px);margin:auto}.auth-card header{margin-bottom:1.6rem}.auth-card header>span{color:var(--primary);font-size:.78rem;font-weight:750}.auth-card h2{margin-top:.35rem;font-size:1.85rem}.auth-card header p,.auth-note{color:var(--muted)}.auth-card form{display:grid;gap:1rem;margin-top:1rem}.form-meta{text-align:right}.form-meta a{color:var(--primary);font-size:.78rem;font-weight:680}.auth-note{margin-top:1.5rem;font-size:.78rem;text-align:center}@media(min-width:960px){.auth-shell{grid-template-columns:minmax(0,1.15fr) minmax(420px,.85fr)}.auth-story{display:flex}.mobile-logo{display:none}.auth-form-wrap{padding:2rem clamp(2rem,5vw,4.5rem)}}
+  .required-mark{color:var(--danger);font-weight:800}.auth-body{background:white}.auth-shell{min-height:100dvh;display:grid}.auth-story{display:none;background:var(--sidebar);color:white;padding:clamp(2rem,5vw,5rem);flex-direction:column;justify-content:space-between}.auth-story>div{max-width:650px}.story-status{display:block;margin-bottom:1.2rem;color:var(--sidebar-muted);font-size:.78rem;font-weight:700}.auth-story h1{max-width:13ch;font-size:clamp(3rem,5vw,5.2rem);line-height:.98;letter-spacing:-.04em}.auth-story p{max-width:50ch;margin-top:1.4rem;color:var(--sidebar-muted)}.auth-form-wrap{min-height:100dvh;display:flex;flex-direction:column;padding:1.25rem}.mobile-logo{padding:.5rem 0 2rem}.auth-card{width:min(100%,430px);margin:auto}.auth-card header{margin-bottom:1.6rem}.auth-card header>span{color:var(--primary);font-size:.78rem;font-weight:750}.auth-card h2{margin-top:.35rem;font-size:1.85rem}.auth-card header p,.auth-note{color:var(--muted)}.auth-card form{display:grid;gap:1rem;margin-top:1rem}.form-meta{text-align:right}.form-meta a{color:var(--primary);font-size:.78rem;font-weight:680}.auth-note{margin-top:1.5rem;font-size:.78rem;text-align:center}@media(min-width:960px){.auth-shell{grid-template-columns:minmax(0,1.15fr) minmax(420px,.85fr)}.auth-story{display:flex}.mobile-logo{display:none}.auth-form-wrap{padding:2rem clamp(2rem,5vw,4.5rem)}}
 </style>

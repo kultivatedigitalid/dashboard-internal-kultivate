@@ -1,84 +1,82 @@
 ---
-import { actions } from 'astro:actions';
+import { actions, isInputError } from 'astro:actions';
 import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
+import ProgressBar from '@/components/ProgressBar.astro';
 import EmptyState from '@/components/EmptyState.astro';
-import { createEvidenceUrl, loadDashboardData } from '@/lib/dashboard-data';
+import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
 import { formatDate, formatDateTime } from '@/lib/formatters';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
+const result = Astro.getActionResult(actions.updateTaskProgress);
+if (result && !result.error) return Astro.redirect(result.data.redirectTo);
+const fieldErrors = isInputError(result?.error) ? result.error.fields : {};
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const taskId = Astro.params.taskId ?? '';
 const task = data?.tasks.find((row) => row.id === taskId);
 if (!task && !loadError) Astro.response.status = 404;
-const checklist = data?.checklist.filter((row) => row.task_id === taskId) ?? [];
-const updates = data?.taskUpdates.filter((row) => row.task_id === taskId) ?? [];
-const evidenceUrls = new Map<string, string>();
-for (const update of updates) {
-  if (update.evidence_path) {
-    const url = await createEvidenceUrl(Astro, update.evidence_path);
-    if (url) evidenceUrls.set(update.id, url);
-  }
-}
-const results = [
-  Astro.getActionResult(actions.updateTaskProgress),
-  Astro.getActionResult(actions.toggleChecklist),
-  Astro.getActionResult(actions.uploadTaskEvidence),
-].filter(Boolean);
+const dashboardTask = task && data ? toDashboardTask(task, data) : null;
+const statusMeta = task?.status === 'completed' ? { label: 'Selesai', tone: 'success' as const } : task?.status === 'in_progress' ? { label: 'Proses', tone: 'info' as const } : { label: 'Belum Mulai', tone: 'neutral' as const };
+const priorityMeta = task?.priority === 'urgent' ? { label: 'Urgent', tone: 'danger' as const } : { label: 'To-do', tone: 'neutral' as const };
 ---
 
-<AppLayout title={task?.title ?? 'Tugas'} heading={task?.title ?? 'Tugas tidak ditemukan'} description="Perbarui progres dan lampirkan hasil pekerjaan." role="employee" user={user} activePath="/app/tasks">
+<AppLayout title={task?.title ?? 'Tugas'} heading={task?.title ?? 'Tugas tidak ditemukan'} description="Pelajari detail tugas dan perbarui progress pekerjaan." role="employee" user={user} activePath="/app/tasks">
   <a slot="actions" class="button secondary" href="/app/tasks">Kembali</a>
   {loadError && <div class="alert danger" role="alert">{loadError}</div>}
-  {results.map((result) => result?.error ? <div class="alert danger" role="alert">{result.error.message}</div> : <div class="alert success">{result?.data.message}</div>)}
+  {result?.error && !isInputError(result.error) && <div class="alert danger" role="alert">{result.error.message}</div>}
 
-  {!task ? <EmptyState title="Tugas tidak ditemukan" description="Tugas mungkin sudah dihapus atau tidak ditugaskan kepada Anda." actionLabel="Kembali ke tugas" actionHref="/app/tasks" /> : (
-    <div class="task-grid">
+  {!task || !dashboardTask ? <EmptyState title="Tugas tidak ditemukan" description="Tugas mungkin sudah dihapus atau tidak ditugaskan kepada Anda." actionLabel="Kembali ke tugas" actionHref="/app/tasks" /> : (
+    <div class="task-detail-grid">
       <div class="stack">
-        <section class="panel panel-body">
-          <div class="cluster"><StatusBadge label={task.status} tone="info" /><StatusBadge label={task.priority} tone={task.priority === 'urgent' ? 'danger' : 'warning'} /></div>
-          <p>{task.description || 'Tidak ada deskripsi.'}</p>
-          <dl class="facts"><div><dt>Mulai</dt><dd>{task.start_date ? formatDate(task.start_date) : '—'}</dd></div><div><dt>Deadline</dt><dd>{task.due_date ? formatDate(task.due_date) : '—'}</dd></div><div><dt>Estimasi</dt><dd>{task.estimate_hours ?? 0} jam</dd></div></dl>
+        <section class="panel panel-body task-summary">
+          <div class="cluster"><StatusBadge label={priorityMeta.label} tone={priorityMeta.tone} /><StatusBadge label={statusMeta.label} tone={statusMeta.tone} /></div>
+          <div class="progress-heading"><strong>{task.progress}%</strong><span>Status diperbarui otomatis dari progress.</span></div>
+          <ProgressBar value={task.progress} />
+          <dl><div><dt>Ditugaskan kepada</dt><dd>{dashboardTask.assignees.join(', ')}</dd></div><div><dt>Deadline</dt><dd>{task.due_date ? formatDate(task.due_date) : 'No Deadline'}</dd></div><div><dt>Terakhir diperbarui</dt><dd>{task.progress_updated_at ? formatDateTime(task.progress_updated_at) : 'Belum ada pembaruan'}</dd></div></dl>
         </section>
-
-        <section class="panel">
-          <div class="panel-header"><div><h2>Checklist</h2><p>{checklist.filter((item) => item.is_done).length} dari {checklist.length} selesai.</p></div></div>
-          {checklist.length ? <div class="checklist">{checklist.map((item) => <form method="POST" action={actions.toggleChecklist}><input type="hidden" name="itemId" value={item.id} /><input type="hidden" name="isDone" value={String(!item.is_done)} /><button class:list={['check-item', { done: item.is_done }]} type="submit"><span>{item.is_done ? '✓' : ''}</span>{item.title}</button></form>)}</div> : <EmptyState title="Belum ada checklist" description="Admin tidak menambahkan checklist pada tugas ini." />}
-        </section>
-
-        <section class="panel">
-          <div class="panel-header"><div><h2>Riwayat progres</h2><p>Catatan, link, dan bukti terbaru.</p></div></div>
-          {updates.length ? <div class="updates">{updates.map((update) => <article><div><strong>{update.progress}%</strong><span>{formatDateTime(update.created_at)}</span></div>{update.note && <p>{update.note}</p>}{update.work_url && <a href={update.work_url} target="_blank" rel="noreferrer">Buka tautan hasil ↗</a>}{evidenceUrls.get(update.id) && <a href={evidenceUrls.get(update.id)} target="_blank" rel="noreferrer">Buka bukti kerja ↗</a>}</article>)}</div> : <EmptyState title="Belum ada pembaruan" description="Simpan progres pertama Anda." />}
+        <section class="panel detail-sections">
+          <article><span class="section-icon"><i class="ph ph-briefcase" aria-hidden="true"></i></span><div><h2>Project Description</h2><p>{task.project_description}</p></div></article>
+          <article><span class="section-icon"><i class="ph ph-list-numbers" aria-hidden="true"></i></span><div><h2>Detail How-to</h2><p class:list={{ 'empty-detail': !task.how_to }}>{task.how_to || 'Belum ada panduan pengerjaan untuk tugas ini.'}</p></div></article>
+          <article><span class="section-icon"><i class="ph ph-check-circle" aria-hidden="true"></i></span><div><h2>Success Criteria</h2><p class:list={{ 'empty-detail': !task.success_criteria }}>{task.success_criteria || 'Belum ada kriteria keberhasilan untuk tugas ini.'}</p></div></article>
         </section>
       </div>
 
-      <aside class="stack">
-        <section class="panel">
-          <div class="panel-header"><div><h2>Perbarui progres</h2></div></div>
-          <form method="POST" action={actions.updateTaskProgress} class="panel-body stack">
-            <input type="hidden" name="taskId" value={task.id} />
-            <label class="field">Progres (%)<input class="input" name="progress" type="number" min="0" max="100" value={task.progress} required /></label>
-            <label class="field">Catatan<textarea class="textarea" name="note" maxlength="3000"></textarea></label>
-            <label class="field">URL hasil<input class="input" name="workUrl" type="url" placeholder="https://" /></label>
-            <button class="button" type="submit">Simpan progres</button>
-          </form>
-        </section>
-        <section class="panel">
-          <div class="panel-header"><div><h2>Unggah bukti</h2><p>PDF/JPG/PNG/WebP, maksimal 10 MB.</p></div></div>
-          <form method="POST" action={actions.uploadTaskEvidence} enctype="multipart/form-data" class="panel-body stack">
-            <input type="hidden" name="taskId" value={task.id} />
-            <input class="input" name="evidence" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" required />
-            <button class="button secondary" type="submit">Unggah bukti</button>
-          </form>
-        </section>
+      <aside class="panel progress-editor">
+        <div class="panel-header"><div><h2>Perbarui progress</h2><p>Anda hanya dapat mengubah progress tugas.</p></div></div>
+        <form method="POST" action={actions.updateTaskProgress} class="panel-body stack">
+          <input type="hidden" name="taskId" value={task.id} />
+          <label class="field">
+            <span class="field-label">Progress <span class="required-mark" aria-hidden="true">*</span></span>
+            <div class="progress-control"><input type="range" min="0" max="100" step="1" value={task.progress} data-progress-range aria-label="Progress tugas" /><input class="input" name="progress" type="number" min="0" max="100" value={task.progress} required data-progress-number aria-invalid={Boolean(fieldErrors.progress)} /></div>
+            {fieldErrors.progress && <span class="field-error">{fieldErrors.progress.join(', ')}</span>}
+          </label>
+          <div class="status-preview" aria-live="polite"><span>Status otomatis</span><strong data-status-preview>{statusMeta.label}</strong></div>
+          <button class="button" type="submit"><i class="ph ph-floppy-disk" aria-hidden="true"></i>Simpan progress</button>
+        </form>
       </aside>
     </div>
   )}
+
+  <script>
+    const range = document.querySelector<HTMLInputElement>('[data-progress-range]');
+    const number = document.querySelector<HTMLInputElement>('[data-progress-number]');
+    const preview = document.querySelector<HTMLElement>('[data-status-preview]');
+    const syncProgress = (value: number) => {
+      const safeValue = Math.min(100, Math.max(0, Number.isFinite(value) ? value : 0));
+      if (range) range.value = String(safeValue);
+      if (number) number.value = String(safeValue);
+      if (preview) preview.textContent = safeValue === 0 ? 'Belum Mulai' : safeValue === 100 ? 'Selesai' : 'Proses';
+    };
+    range?.addEventListener('input', () => syncProgress(Number(range.value)));
+    number?.addEventListener('input', () => syncProgress(Number(number.value)));
+  </script>
 </AppLayout>
 
 <style>
-  .task-grid{display:grid;gap:1rem}.panel-body>p{margin:1rem 0;color:var(--muted)}.facts{display:grid;gap:.6rem}.facts div{display:flex;justify-content:space-between}.facts dt{color:var(--muted)}.facts dd{margin:0}.checklist{display:grid}.check-item{width:100%;display:flex;gap:.7rem;padding:.9rem 1.1rem;border:0;border-bottom:1px solid var(--line);background:white;text-align:left;cursor:pointer}.check-item span{width:22px;height:22px;border:1px solid var(--line-strong);border-radius:6px;text-align:center}.check-item.done{color:var(--muted);text-decoration:line-through}.updates article{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}.updates article>div{display:flex;justify-content:space-between}.updates span{color:var(--muted);font-size:.72rem}.updates p{margin:.5rem 0}.updates a{display:block;color:var(--primary);font-size:.78rem}@media(min-width:960px){.task-grid{grid-template-columns:1.3fr .7fr}}
+  .required-mark{color:var(--danger);font-weight:800}.task-detail-grid{display:grid;gap:1rem}.task-summary{display:grid;gap:.8rem}.progress-heading{display:flex;align-items:baseline;gap:.6rem}.progress-heading strong{font-size:1.7rem}.progress-heading span{color:var(--muted);font-size:.72rem}.task-summary dl{display:grid;gap:.7rem;margin:.3rem 0 0}.task-summary dl div{display:grid;gap:.2rem}.task-summary dt{color:var(--muted);font-size:.68rem}.task-summary dd{margin:0;font-size:.8rem}.detail-sections article{display:grid;grid-template-columns:auto minmax(0,1fr);gap:.8rem;padding:1.1rem}.detail-sections article+article{border-top:1px solid var(--line)}.detail-sections h2{font-size:.9rem}.detail-sections p{margin-top:.45rem;max-width:75ch;color:var(--ink-soft);font-size:.8rem;line-height:1.65;white-space:pre-wrap}.detail-sections .empty-detail{color:var(--muted);font-style:italic}.section-icon{width:34px;height:34px;display:grid;place-items:center;border-radius:8px;background:var(--primary-soft);color:var(--primary)}.progress-editor{height:max-content}.progress-control{display:grid;grid-template-columns:minmax(0,1fr) 82px;align-items:center;gap:.75rem}.progress-control input[type=range]{width:100%;accent-color:var(--primary)}.status-preview{display:flex;justify-content:space-between;padding:.75rem;border-radius:9px;background:var(--surface);font-size:.78rem}.status-preview span{color:var(--muted)}
+  @media(min-width:760px){.task-summary dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(min-width:980px){.task-detail-grid{grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);align-items:start}.progress-editor{position:sticky;top:calc(var(--topbar-height) + 1rem)}}
 </style>

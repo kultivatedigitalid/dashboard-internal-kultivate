@@ -7,42 +7,46 @@ import { formatDate } from '@/lib/formatters';
 interface Props { task: DashboardTask; admin?: boolean }
 const { task, admin = false } = Astro.props;
 const priorityMap = {
-  low: { label: 'Rendah', tone: 'neutral' as const },
-  medium: { label: 'Sedang', tone: 'info' as const },
-  high: { label: 'Tinggi', tone: 'warning' as const },
-  urgent: { label: 'Mendesak', tone: 'danger' as const },
+  todo: { label: 'To-do', tone: 'neutral' as const },
+  urgent: { label: 'Urgent', tone: 'danger' as const },
 };
-const priority = priorityMap[task.priority];
+const statusMap = {
+  not_started: { label: 'Belum Mulai', tone: 'neutral' as const },
+  in_progress: { label: 'Proses', tone: 'info' as const },
+  completed: { label: 'Selesai', tone: 'success' as const },
+};
+const taskHref = admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`;
 ---
 
-<article class="task-row">
-  <div class="task-check" aria-hidden="true">{task.status === 'completed' ? 'âœ“' : ''}</div>
+<a class:list={['task-row', { completed: task.status === 'completed' }]} href={taskHref} aria-label={`Buka detail tugas ${task.title}`}>
+  <div class="task-state" aria-hidden="true"><i class:list={['ph', task.status === 'completed' ? 'ph-check' : 'ph-circle']}></i></div>
   <div class="task-main">
     <div class="task-heading">
-      <a href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`}>{task.title}</a>
-      <StatusBadge label={priority.label} tone={priority.tone} />
+      <strong>{task.title}</strong>
+      <StatusBadge label={priorityMap[task.priority].label} tone={priorityMap[task.priority].tone} />
+      <StatusBadge label={statusMap[task.status].label} tone={statusMap[task.status].tone} />
     </div>
+    <p class="project-description">{task.projectDescription}</p>
     <div class="task-meta">
-      {admin && <span>{task.assignee}</span>}
-      <span>{task.dueDate ? `Deadline ${formatDate(task.dueDate)}` : 'Tanpa deadline'}</span>
-      <span>{task.checklistDone}/{task.checklistTotal} checklist</span>
+      <span><i class="ph ph-users-three" aria-hidden="true"></i>{task.assignees.join(', ')}</span>
+      <span><i class="ph ph-calendar" aria-hidden="true"></i>{task.dueDate ? `Deadline ${formatDate(task.dueDate)}` : 'Tanpa deadline'}</span>
     </div>
     <ProgressBar value={task.progress} />
   </div>
   <strong class="task-progress">{task.progress}%</strong>
-  <a class="task-open" href={admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`} aria-label={`Buka ${task.title}`}>â†’</a>
-</article>
+  <span class="task-open" aria-hidden="true">
+    <i class="ph ph-arrow-right" aria-hidden="true"></i>
+  </span>
+</a>
 
 <style>
-  .task-row { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: start; gap: .85rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line); }
-  .task-row:last-child { border-bottom: 0; }
-  .task-check { width: 24px; height: 24px; display: grid; place-items: center; margin-top: .05rem; border: 1px solid var(--line-strong); border-radius: 7px; color: var(--primary); font-weight: 800; }
-  .task-main { min-width: 0; display: grid; gap: .6rem; }
-  .task-heading { display: flex; align-items: center; flex-wrap: wrap; gap: .55rem; }
-  .task-heading a { min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
-  .task-heading a:hover { color: var(--primary); }
-  .task-meta { display: flex; flex-wrap: wrap; gap: .35rem 1rem; color: var(--muted); font-size: .72rem; }
-  .task-progress { display: none; color: var(--ink-soft); font-size: .8rem; font-variant-numeric: tabular-nums; }
-  .task-open { grid-column: 3; color: var(--primary); font-weight: 800; }
-  @media (min-width: 620px) { .task-row { grid-template-columns: auto minmax(0,1fr) auto auto; align-items: center; } .task-progress { display: block; } .task-open { grid-column: auto; } }
+  .task-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:start;gap:.85rem;padding:1rem 1.15rem;border-bottom:1px solid var(--line);cursor:pointer;transition:background-color 160ms var(--ease-out)}
+  .task-row:last-child{border-bottom:0}.task-row.completed{background:var(--surface)}
+  .task-state{width:24px;height:24px;display:grid;place-items:center;margin-top:.05rem;border:1px solid var(--line-strong);border-radius:7px;color:var(--primary)}
+  .task-main{min-width:0;display:grid;gap:.55rem}.task-heading{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem}.task-heading>strong{min-width:0;overflow:hidden;font-weight:720;text-overflow:ellipsis;white-space:nowrap;transition:color 160ms var(--ease-out)}
+  .project-description{display:-webkit-box;overflow:hidden;color:var(--ink-soft);font-size:.78rem;line-height:1.5;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  .task-meta{display:flex;flex-wrap:wrap;gap:.35rem 1rem;color:var(--muted);font-size:.72rem}.task-meta span{display:inline-flex;align-items:center;gap:.35rem}.task-progress{display:none;color:var(--ink-soft);font-size:.8rem;font-variant-numeric:tabular-nums}.task-open{grid-column:3;width:36px;height:36px;display:grid;place-items:center;border-radius:8px;color:var(--primary);font-size:1rem;transition:background-color 160ms var(--ease-out),transform 120ms var(--ease-out)}.task-open:active{transform:scale(.94)}
+  .task-row:focus-visible{outline-offset:-3px}
+  @media(hover:hover) and (pointer:fine){.task-row:hover{background:var(--surface)}.task-row:hover .task-heading>strong{color:var(--primary)}.task-row:hover .task-open{background:var(--primary-soft)}}
+  @media(min-width:700px){.task-row{grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center}.task-progress{display:block}.task-open{grid-column:auto}}
 </style>
