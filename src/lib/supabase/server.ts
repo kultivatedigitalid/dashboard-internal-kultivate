@@ -7,18 +7,40 @@ import type { APIContext, AstroCookies } from 'astro';
 // Cloudflare Workers mengekspos env vars melalui `cloudflare:workers` bukan
 // `import.meta.env`. Fungsi-fungsi ini membaca dan men-trim nilai dari binding.
 
+let hasLoggedDiagnostics = false;
+
 function runtimeEnv(): Record<string, string | undefined> {
-  return env as unknown as Record<string, string | undefined>;
+  try {
+    return env as unknown as Record<string, string | undefined>;
+  } catch {
+    return {};
+  }
 }
 
 function getRuntimeVar(key: string): string | undefined {
-  return runtimeEnv()[key]?.trim() || undefined;
+  // 1. Coba baca dari cloudflare:workers runtime binding
+  let val = runtimeEnv()[key];
+  
+  // 2. Fallback ke import.meta.env
+  if (!val && typeof import.meta.env !== 'undefined') {
+    val = import.meta.env[key] as string | undefined;
+  }
+  
+  if (val) {
+    val = val.trim();
+    // Hapus tanda kutip jika terikut (e.g. "nilai" -> nilai)
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.substring(1, val.length - 1).trim();
+    }
+  }
+  
+  return val || undefined;
 }
 
 // ─── Validators ───────────────────────────────────────────────────────────────
 
 function validSupabaseUrl(value?: string): value is string {
-  return Boolean(value && /^https:\/\/[a-z0-9]+\.supabase\.co\/?$/i.test(value) && !value.includes('your-project'));
+  return Boolean(value && /^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/i.test(value) && !value.includes('your-project'));
 }
 
 function validPublishableKey(value?: string): value is string {
@@ -32,8 +54,30 @@ function validSecretKey(value?: string): value is string {
 // ─── Public helpers ───────────────────────────────────────────────────────────
 
 export function hasSupabaseConfig(): boolean {
-  return validSupabaseUrl(getRuntimeVar('PUBLIC_SUPABASE_URL'))
-    && validPublishableKey(getRuntimeVar('PUBLIC_SUPABASE_PUBLISHABLE_KEY'));
+  const url = getRuntimeVar('PUBLIC_SUPABASE_URL');
+  const key = getRuntimeVar('PUBLIC_SUPABASE_PUBLISHABLE_KEY');
+  
+  const isUrlValid = validSupabaseUrl(url);
+  const isKeyValid = validPublishableKey(key);
+  
+  if (!isUrlValid || !isKeyValid) {
+    if (!hasLoggedDiagnostics) {
+      hasLoggedDiagnostics = true;
+      console.warn('[SUPABASE CONFIG DIAGNOSTICS]', {
+        hasCFEnv: typeof env !== 'undefined',
+        cfKeys: typeof env !== 'undefined' ? Object.keys(env) : [],
+        hasImportMetaEnv: typeof import.meta.env !== 'undefined',
+        importMetaKeys: typeof import.meta.env !== 'undefined' ? Object.keys(import.meta.env) : [],
+        url: url ? `${url.substring(0, 15)}...` : undefined,
+        urlLength: url?.length,
+        isUrlValid,
+        keyLength: key?.length,
+        isKeyValid
+      });
+    }
+  }
+  
+  return isUrlValid && isKeyValid;
 }
 
 export function hasSupabaseSecret(): boolean {
