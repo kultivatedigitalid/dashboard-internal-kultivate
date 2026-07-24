@@ -18,7 +18,7 @@
     "provision:accounts": "node scripts/provision-required-accounts.mjs"
   },
   "dependencies": {
-    "@astrojs/vercel": "11.0.3",
+    "@astrojs/cloudflare": "^14.1.4",
     "@phosphor-icons/web": "2.1.2",
     "@supabase/auth-js": "2.110.7",
     "@supabase/realtime-js": "2.110.7",
@@ -27,6 +27,7 @@
     "astro": "7.1.1",
     "css-select": "5.2.2",
     "oniguruma-parser": "0.12.2",
+    "prismjs": "1.30.0",
     "rolldown": "1.1.5",
     "unstorage": "1.17.5"
   },

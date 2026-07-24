@@ -107,3 +107,24 @@ npm run provision:accounts
 ```
 
 Hapus environment variable password dari terminal setelah provisioning. Semua akun dibuat di Supabase Auth dan `public.profiles`, lalu diwajibkan melakukan OTP pada login pertama.
+## Deploy ke Cloudflare Pages
+
+Proyek ini memakai adaptor Cloudflare untuk SSR. Di Cloudflare Pages, gunakan konfigurasi berikut:
+
+```text
+Production branch: codex/initial-dashboard
+Build command: npm run build
+Build output directory: dist
+Node.js version: 22
+```
+
+Tambahkan environment variable berikut untuk lingkungan Preview dan Production. Jangan gunakan prefix `PUBLIC_` untuk secret key.
+
+```text
+PUBLIC_SUPABASE_URL
+PUBLIC_SUPABASE_PUBLISHABLE_KEY
+SUPABASE_SECRET_KEY
+PUBLIC_SITE_URL
+```
+
+`PUBLIC_SITE_URL` harus berisi URL deployment yang dipakai, misalnya `https://dashboard.pages.dev`. Tambahkan URL tersebut dan `https://dashboard.pages.dev/auth/callback` pada Supabase Authentication > URL Configuration.

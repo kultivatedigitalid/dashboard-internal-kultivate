@@ -1,12 +1,12 @@
-﻿import { defineConfig } from 'astro/config';
-import vercel from '@astrojs/vercel';
+import { defineConfig } from 'astro/config';
+import cloudflare from '@astrojs/cloudflare';
 import { fileURLToPath } from 'node:url';
 
 const srcPath = fileURLToPath(new URL('./src', import.meta.url));
 
 export default defineConfig({
   output: 'server',
-  adapter: vercel(),
+  adapter: cloudflare(),
   vite: {
     resolve: {
       alias: {
