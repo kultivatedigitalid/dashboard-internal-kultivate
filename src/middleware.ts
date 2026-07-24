@@ -1,7 +1,7 @@
 import { defineMiddleware } from 'astro:middleware';
 import { createSupabaseServerClient, hasSupabaseConfig } from '@/lib/supabase/server';
 
-const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/verify-otp', '/auth/callback'];
+const PUBLIC_ROUTES = ['/login', '/forgot-password', '/reset-password', '/verify-otp', '/auth/callback', '/auth/logout'];
 
 export const onRequest = defineMiddleware(async (context, next) => {
   const pathname = context.url.pathname;
@@ -10,6 +10,7 @@ export const onRequest = defineMiddleware(async (context, next) => {
   context.locals.user = null;
   context.locals.role = null;
   context.locals.otpRequired = false;
+  context.locals.hasTaskNotifications = false;
 
   if (!hasSupabaseConfig()) {
     if (isPublic) return next();
@@ -22,15 +23,16 @@ export const onRequest = defineMiddleware(async (context, next) => {
   if (user && !authError) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('email, full_name, employee_code, role, is_active, first_login_verified_at')
+      .select('email, full_name, employee_code, role, is_active')
       .eq('id', user.id)
       .maybeSingle();
 
     const role = user.app_metadata.app_role === 'admin' ? 'admin' : 'employee';
     if (profile && profile.is_active && profile.role === role) {
       const fullName = profile.full_name || user.user_metadata.full_name || user.email?.split('@')[0] || 'Pengguna';
+      const { data: otpVerified } = await supabase.rpc('is_current_session_otp_verified');
       context.locals.role = role;
-      context.locals.otpRequired = !profile.first_login_verified_at;
+      context.locals.otpRequired = otpVerified !== true;
       context.locals.user = {
         id: user.id,
         email: profile.email || user.email || '',
@@ -39,8 +41,19 @@ export const onRequest = defineMiddleware(async (context, next) => {
         employeeCode: profile.employee_code ?? undefined,
         avatar: fullName.split(' ').filter(Boolean).slice(0, 2).map((part: string) => part[0]).join('').toUpperCase(),
       };
+
+      if (otpVerified === true) {
+        const taskRoot = role === 'admin' ? '/admin/tasks' : '/app/tasks';
+        const isTaskPage = pathname === taskRoot || pathname.startsWith(taskRoot + '/');
+        if (isTaskPage) {
+          await supabase.rpc('mark_task_notifications_read');
+        } else {
+          const { data: hasUnread } = await supabase.rpc('has_unread_task_notifications');
+          context.locals.hasTaskNotifications = hasUnread === true;
+        }
+      }
     } else {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: 'local' });
       if (!isPublic) return context.redirect('/login?error=inactive');
     }
   }

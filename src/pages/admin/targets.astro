@@ -11,7 +11,7 @@ const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 const result = Astro.getActionResult(actions.upsertTarget);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const employees = data?.profiles.filter((row) => row.role === 'employee' && row.is_active) ?? [];
 const approvedHours = (id: string) => (data?.sessions ?? []).filter((row) => row.employee_id === id && row.status === 'approved').reduce((sum, row) => sum + netHours(row.check_in, row.check_out, row.break_minutes), 0);
@@ -25,9 +25,9 @@ const targetFor = (id: string) => data?.targets.find((row) => row.employee_id ==
   <section class="panel">
     <div class="panel-header"><div><h2>Target baru</h2><p>Target sebelumnya pada tipe yang sama akan dinonaktifkan.</p></div></div>
     <form method="POST" action={actions.upsertTarget} class="panel-body target-form">
-      <label class="field">Karyawan<select class="select" name="employeeId" required><option value="">Pilih karyawan</option>{employees.map((row) => <option value={row.id}>{row.full_name}</option>)}</select></label>
+      <label class="field"><span class="field-label">Karyawan <span class="required-mark" aria-hidden="true">*</span></span><select class="select" name="employeeId" required><option value="">Pilih karyawan</option>{employees.map((row) => <option value={row.id}>{row.full_name}</option>)}</select></label>
       <label class="field">Jenis<select class="select" name="targetType"><option value="overall">Keseluruhan</option><option value="weekly">Mingguan</option><option value="monthly">Bulanan</option></select></label>
-      <label class="field">Jam<input class="input" name="targetHours" type="number" min="0" step=".5" value={data?.settings.overall_target_hours ?? 600} required /></label>
+      <label class="field"><span class="field-label">Jam <span class="required-mark" aria-hidden="true">*</span></span><input class="input" name="targetHours" type="number" min="0" step=".5" value={data?.settings.overall_target_hours ?? 600} required /></label>
       <label class="field">Mulai<input class="input" name="periodStart" type="date" value={currentWeekStart()} /></label>
       <label class="field">Selesai<input class="input" name="periodEnd" type="date" /></label>
       <button class="button" type="submit">Simpan target</button>

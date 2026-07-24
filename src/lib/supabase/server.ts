@@ -45,6 +45,22 @@ export function createSupabaseServerClient({
   });
 }
 
+export function createSupabaseOtpVerifier() {
+  const url = import.meta.env.PUBLIC_SUPABASE_URL;
+  const key = import.meta.env.PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  if (!validSupabaseUrl(url) || !validPublishableKey(key)) {
+    throw new Error('SUPABASE_NOT_CONFIGURED');
+  }
+
+  return createClient(url, key, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+  });
+}
+
 export function createSupabaseServiceClient() {
   const url = import.meta.env.PUBLIC_SUPABASE_URL;
   const secret = import.meta.env.SUPABASE_SECRET_KEY;

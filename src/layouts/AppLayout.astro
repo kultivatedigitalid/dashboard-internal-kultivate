@@ -1,7 +1,7 @@
 ---
-import { actions } from 'astro:actions';
 import BaseLayout from './BaseLayout.astro';
 import Logo from '@/components/Logo.astro';
+import LogoutDialog from '@/components/LogoutDialog.astro';
 import type { AppRole, AppUser } from '@/lib/types';
 
 interface Props {
@@ -14,44 +14,41 @@ interface Props {
 }
 
 const { title, heading, description, role, user, activePath } = Astro.props;
-const logoutResult = Astro.getActionResult(actions.logout);
-if (logoutResult && !logoutResult.error) {
-  return Astro.redirect(logoutResult.data.redirectTo);
-}
 
 const employeeNavigation = [
-  { href: '/app', label: 'Dashboard', glyph: 'âŒ‚' },
-  { href: '/app/attendance', label: 'Absensi', glyph: 'â—·' },
-  { href: '/app/tasks', label: 'Tugas', glyph: 'âœ“' },
-  { href: '/app/weekly-report', label: 'Laporan', glyph: 'â‰¡' },
-  { href: '/app/allowances', label: 'Tunjangan', glyph: 'â‚«' },
-  { href: '/app/profile', label: 'Profil', glyph: 'â—‹' },
+  { href: '/app', label: 'Dashboard', icon: 'ph-squares-four' },
+  { href: '/app/attendance', label: 'Absensi', icon: 'ph-clock' },
+  { href: '/app/tasks', label: 'Tugas', icon: 'ph-check-square' },
+  { href: '/app/weekly-report', label: 'Laporan', icon: 'ph-file-text' },
+  { href: '/app/profile', label: 'Profil', icon: 'ph-user-circle' },
 ];
 
 const adminNavigation = [
-  { href: '/admin', label: 'Dashboard', glyph: 'âŒ‚' },
-  { href: '/admin/employees', label: 'Karyawan', glyph: 'â—Ž' },
-  { href: '/admin/admins', label: 'Tambah Admin', glyph: '+' },
-  { href: '/admin/tasks', label: 'Tugas', glyph: 'âœ“' },
-  { href: '/admin/targets', label: 'Target', glyph: 'â†—' },
-  { href: '/admin/attendance', label: 'Absensi', glyph: 'â—·' },
-  { href: '/admin/reports', label: 'Laporan', glyph: 'â‰¡' },
-  { href: '/admin/allowances', label: 'Tunjangan', glyph: 'â‚«' },
-  { href: '/admin/evaluations', label: 'Evaluasi', glyph: 'â—‡' },
-  { href: '/admin/settings', label: 'Pengaturan', glyph: 'âš™' },
+  { href: '/admin', label: 'Dashboard', icon: 'ph-squares-four' },
+  { href: '/admin/employees', label: 'Karyawan', icon: 'ph-users-three' },
+  { href: '/admin/admins', label: 'Tambah Admin', icon: 'ph-user-plus' },
+  { href: '/admin/tasks', label: 'Tugas', icon: 'ph-check-square' },
+  { href: '/admin/targets', label: 'Target', icon: 'ph-target' },
+  { href: '/admin/attendance', label: 'Absensi', icon: 'ph-calendar-check' },
+  { href: '/admin/reports', label: 'Laporan', icon: 'ph-file-text' },
+  { href: '/admin/evaluations', label: 'Evaluasi', icon: 'ph-star' },
+  { href: '/admin/settings', label: 'Pengaturan', icon: 'ph-gear-six' },
 ];
 
 const navigation = role === 'admin' ? adminNavigation : employeeNavigation;
-const isActive = (href: string) => href === activePath || (href !== `/${role === 'admin' ? 'admin' : 'app'}` && activePath.startsWith(`${href}/`));
+const rootPath = role === 'admin' ? '/admin' : '/app';
+const isActive = (href: string) => href === activePath || (href !== rootPath && activePath.startsWith(href + '/'));
 ---
 
 <BaseLayout title={title} bodyClass="app-body">
   <div class="app-shell">
     <div class="drawer-backdrop" data-drawer-backdrop></div>
-    <aside class="sidebar" data-sidebar aria-label="Navigasi utama">
+    <aside class="sidebar" data-sidebar data-sidebar-role={role} aria-label="Navigasi utama">
       <div class="sidebar-head">
         <Logo inverse />
-        <button class="sidebar-close" type="button" data-drawer-close aria-label="Tutup navigasi">Ã—</button>
+        <button class="sidebar-close" type="button" data-drawer-close aria-label="Tutup navigasi">
+          <i class="ph ph-x" aria-hidden="true"></i>
+        </button>
       </div>
 
       <div class="workspace-switcher">
@@ -64,7 +61,7 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
         <span class="nav-label">Menu utama</span>
         {navigation.map((item) => (
           <a href={item.href} class:list={['nav-item', { active: isActive(item.href) }]} aria-current={isActive(item.href) ? 'page' : undefined}>
-            <span class="nav-glyph" aria-hidden="true">{item.glyph}</span>
+            <i class:list={['ph', item.icon, 'nav-glyph']} aria-hidden="true"></i>
             <span>{item.label}</span>
           </a>
         ))}
@@ -72,37 +69,43 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
 
       <div class="sidebar-foot">
         <div class="sidebar-help">
-          <strong>Butuh bantuan?</strong>
-          <span>Lihat panduan penggunaan dashboard.</span>
-          <a href="/help">Buka panduan <span aria-hidden="true">â†’</span></a>
+          <i class="ph ph-question" aria-hidden="true"></i>
+          <div>
+            <strong>Butuh bantuan?</strong>
+            <span>Lihat panduan penggunaan dashboard.</span>
+            <a href="/help">Buka panduan <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+          </div>
         </div>
       </div>
     </aside>
 
     <div class="app-main">
       <header class="topbar">
-        <button class="menu-trigger icon-button" type="button" data-drawer-open aria-label="Buka navigasi">â˜°</button>
+        <button class="menu-trigger icon-button" type="button" data-drawer-open aria-label="Buka navigasi" aria-expanded="false">
+          <i class="ph ph-list" aria-hidden="true"></i>
+        </button>
         <div class="topbar-context">
           <span>{role === 'admin' ? 'Admin' : 'Karyawan'}</span>
           <strong>{heading}</strong>
         </div>
         <div class="topbar-tools">
-          <a class="topbar-icon" href={role === 'admin' ? '/admin/reports' : '/app/tasks'} aria-label="Lihat item yang membutuhkan perhatian">
-            <span aria-hidden="true">â—</span>
-            <i></i>
+          <a class="topbar-icon" href={role === 'admin' ? '/admin/tasks' : '/app/tasks'} aria-label={Astro.locals.hasTaskNotifications ? 'Buka tugas baru atau yang diperbarui' : 'Buka notifikasi tugas'}>
+            <i class="ph ph-bell" aria-hidden="true"></i>
+            {Astro.locals.hasTaskNotifications && <span class="attention-dot" aria-hidden="true"></span>}
           </a>
           <details class="user-menu">
             <summary aria-label="Buka menu pengguna">
               <span class="avatar">{user.avatar}</span>
               <span class="user-copy"><strong>{user.fullName}</strong><small>{role === 'admin' ? 'Administrator' : user.employeeCode}</small></span>
-              <span class="chevron" aria-hidden="true">âŒ„</span>
+              <i class="ph ph-caret-down chevron" aria-hidden="true"></i>
             </summary>
             <div class="user-popover">
               <div class="popover-user"><strong>{user.fullName}</strong><span>{user.email}</span></div>
-              <a href={role === 'admin' ? '/admin/settings' : '/app/profile'}>Pengaturan akun</a>
-              <form method="POST" action={actions.logout}>
-                <button type="submit">Keluar</button>
-              </form>
+              <a href={role === 'admin' ? '/admin/settings' : '/app/profile'}>
+                <i class="ph ph-gear-six" aria-hidden="true"></i>
+                Pengaturan akun
+              </a>
+              <LogoutDialog dialogId="app-logout-dialog" />
             </div>
           </details>
         </div>
@@ -124,7 +127,7 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
       <nav class="bottom-nav" aria-label="Navigasi mobile">
         {employeeNavigation.slice(0, 5).map((item) => (
           <a href={item.href} class:list={{ active: isActive(item.href) }} aria-current={isActive(item.href) ? 'page' : undefined}>
-            <span aria-hidden="true">{item.glyph}</span>
+            <i class:list={['ph', item.icon]} aria-hidden="true"></i>
             <small>{item.label}</small>
           </a>
         ))}
@@ -133,23 +136,65 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
   </div>
 
   <script>
-    const sidebar = document.querySelector('[data-sidebar]');
-    const backdrop = document.querySelector('[data-drawer-backdrop]');
-    const openButton = document.querySelector('[data-drawer-open]');
-    const closeButton = document.querySelector('[data-drawer-close]');
+    const sidebar = document.querySelector<HTMLElement>('[data-sidebar]');
+    const backdrop = document.querySelector<HTMLElement>('[data-drawer-backdrop]');
+    const openButton = document.querySelector<HTMLButtonElement>('[data-drawer-open]');
+    const closeButton = document.querySelector<HTMLButtonElement>('[data-drawer-close]');
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const sidebarNav = sidebar?.querySelector<HTMLElement>('.sidebar-nav');
+    const sidebarScrollKey = `kultivate-sidebar-scroll:${sidebar?.dataset.sidebarRole ?? 'default'}`;
 
-    const setDrawer = (open: boolean) => {
-      sidebar?.classList.toggle('open', open);
-      backdrop?.classList.toggle('open', open);
-      document.body.classList.toggle('drawer-open', open);
-      openButton?.setAttribute('aria-expanded', String(open));
+    const persistSidebarScroll = () => {
+      if (!sidebarNav) return;
+      try {
+        sessionStorage.setItem(sidebarScrollKey, String(sidebarNav.scrollTop));
+      } catch {
+        // Navigation remains usable when browser storage is unavailable.
+      }
     };
 
+    if (sidebarNav) {
+      try {
+        const savedScroll = Number(sessionStorage.getItem(sidebarScrollKey));
+        if (Number.isFinite(savedScroll) && savedScroll >= 0) sidebarNav.scrollTop = savedScroll;
+      } catch {
+        // Keep the default position when browser storage is unavailable.
+      }
+      sidebarNav.addEventListener('scroll', persistSidebarScroll, { passive: true });
+      window.addEventListener('pagehide', persistSidebarScroll);
+    }
+
+    const setDrawer = (open: boolean, restoreFocus = false) => {
+      const desktop = desktopQuery.matches;
+      sidebar?.classList.toggle('open', open);
+      backdrop?.classList.toggle('open', open);
+      document.body.classList.toggle('drawer-open', open && !desktop);
+      openButton?.setAttribute('aria-expanded', String(open));
+      if (sidebar) sidebar.inert = !desktop && !open;
+
+      if (open) closeButton?.focus();
+      if (!open && restoreFocus) openButton?.focus();
+    };
+
+    setDrawer(false);
     openButton?.addEventListener('click', () => setDrawer(true));
-    closeButton?.addEventListener('click', () => setDrawer(false));
-    backdrop?.addEventListener('click', () => setDrawer(false));
+    closeButton?.addEventListener('click', () => setDrawer(false, true));
+    backdrop?.addEventListener('click', () => setDrawer(false, true));
+    sidebar?.querySelectorAll('a').forEach((link) => link.addEventListener('click', () => {
+      persistSidebarScroll();
+      setDrawer(false);
+    }));
+
+    desktopQuery.addEventListener('change', () => setDrawer(false));
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') setDrawer(false);
+      if (event.key === 'Escape' && sidebar?.classList.contains('open')) setDrawer(false, true);
+    });
+
+    const userMenu = document.querySelector<HTMLDetailsElement>('.user-menu');
+    document.addEventListener('pointerdown', (event) => {
+      if (userMenu?.open && event.target instanceof Node && !userMenu.contains(event.target)) {
+        userMenu.open = false;
+      }
     });
   </script>
 </BaseLayout>
@@ -157,29 +202,33 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
 <style is:global>
   .app-body { background: var(--surface); }
   .app-shell { min-height: 100dvh; }
+  .ph { line-height: 1; }
   .sidebar {
     position: fixed; inset: 0 auto 0 0; z-index: var(--z-drawer); width: min(var(--sidebar-width), 86vw); height: 100dvh;
     display: flex; flex-direction: column; padding: 1.1rem; background: var(--sidebar); color: white;
-    transform: translateX(-105%); transition: transform 220ms cubic-bezier(.16,1,.3,1);
+    transform: translateX(-105%); transition: transform 220ms var(--ease-drawer); will-change: transform;
   }
   .sidebar.open { transform: translateX(0); }
   .sidebar-head { height: 48px; display: flex; align-items: center; justify-content: space-between; }
-  .sidebar-close { width: 40px; height: 40px; border: 0; border-radius: 9px; background: oklch(1 0 0 / .08); color: white; font-size: 1.4rem; cursor: pointer; }
+  .sidebar-close { width: 44px; height: 44px; display:grid; place-items:center; border: 0; border-radius: 9px; background: oklch(1 0 0 / .08); color: white; font-size: 1.25rem; cursor: pointer; transition: background-color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+  .sidebar-close:active { transform: scale(.96); }
   .workspace-switcher { display: grid; margin: 1.4rem 0 1.25rem; padding: .8rem .85rem; border: 1px solid oklch(1 0 0 / .1); border-radius: 11px; background: oklch(1 0 0 / .05); }
   .workspace-switcher span, .workspace-switcher small { color: var(--sidebar-muted); font-size: .68rem; }
   .workspace-switcher strong { margin: .15rem 0; font-size: .82rem; }
-  .sidebar-nav { display: grid; gap: .18rem; overflow-y: auto; }
+  .sidebar-nav { min-height: 0; display: grid; gap: .18rem; overflow-y: auto; }
   .nav-label { padding: .25rem .7rem .5rem; color: var(--sidebar-muted); font-size: .67rem; font-weight: 700; }
-  .nav-item { min-height: 42px; display: flex; align-items: center; gap: .75rem; padding: .52rem .7rem; border-radius: 9px; color: var(--sidebar-muted); font-size: .84rem; font-weight: 570; transition: background 160ms ease-out, color 160ms ease-out; }
-  .nav-item:hover { background: oklch(1 0 0 / .07); color: white; }
+  .nav-item { min-height: 44px; display: flex; align-items: center; gap: .75rem; padding: .52rem .7rem; border-radius: 9px; color: var(--sidebar-muted); font-size: .84rem; font-weight: 570; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+  .nav-item:active { transform: scale(.985); }
   .nav-item.active { background: white; color: var(--sidebar); font-weight: 720; }
   .nav-glyph { width: 22px; display: inline-grid; place-items: center; font-size: 1rem; }
   .sidebar-foot { margin-top: auto; padding-top: 1rem; }
-  .sidebar-help { display: grid; gap: .25rem; padding: .9rem; border-top: 1px solid oklch(1 0 0 / .12); }
+  .sidebar-help { display: grid; grid-template-columns:auto minmax(0,1fr); gap: .7rem; padding: .9rem; border-top: 1px solid oklch(1 0 0 / .12); }
+  .sidebar-help > .ph { margin-top:.1rem; color:var(--sidebar-muted); font-size:1.05rem; }
+  .sidebar-help div { display:grid; gap:.25rem; }
   .sidebar-help strong { font-size: .78rem; }
   .sidebar-help span { color: var(--sidebar-muted); font-size: .69rem; line-height: 1.4; }
-  .sidebar-help a { margin-top: .35rem; color: white; font-size: .72rem; font-weight: 700; }
-  .drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-backdrop); background: oklch(0.08 0 0 / .56); opacity: 0; pointer-events: none; transition: opacity 180ms ease-out; }
+  .sidebar-help a { width:max-content; display:inline-flex; align-items:center; gap:.3rem; margin-top: .35rem; color: white; font-size: .72rem; font-weight: 700; }
+  .drawer-backdrop { position: fixed; inset: 0; z-index: var(--z-backdrop); background: oklch(0.08 0 0 / .56); opacity: 0; pointer-events: none; transition: opacity 180ms var(--ease-out); }
   .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
   .drawer-open { overflow: hidden; }
   .app-main { min-width: 0; }
@@ -188,34 +237,41 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
   .topbar-context span { color: var(--muted); font-size: .67rem; }
   .topbar-context strong { overflow: hidden; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
   .topbar-tools { display: flex; align-items: center; gap: .35rem; }
-  .topbar-icon { position: relative; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 9px; color: var(--muted); }
-  .topbar-icon:hover { background: var(--surface); color: var(--ink); }
-  .topbar-icon i { position: absolute; top: 9px; right: 9px; width: 7px; height: 7px; border: 2px solid white; border-radius: 50%; background: var(--accent); }
+  .topbar-icon { position: relative; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 9px; color: var(--muted); font-size:1.05rem; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+  .topbar-icon:active { transform: scale(.96); }
+  .attention-dot { position: absolute; top: 10px; right: 10px; width: 7px; height: 7px; border: 2px solid white; border-radius: 50%; background: var(--accent); }
   .user-menu { position: relative; }
-  .user-menu summary { min-height: 46px; display: flex; align-items: center; gap: .6rem; padding: .25rem; border-radius: 10px; cursor: pointer; list-style: none; }
+  .user-menu summary { min-height: 46px; display: flex; align-items: center; gap: .6rem; padding: .25rem; border-radius: 10px; cursor: pointer; list-style: none; transition: background-color 160ms var(--ease-out); }
   .user-menu summary::-webkit-details-marker { display: none; }
-  .user-menu summary:hover { background: var(--surface); }
   .user-copy { display: none; line-height: 1.2; }
   .user-copy strong, .user-copy small { display: block; }
   .user-copy strong { max-width: 150px; overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
   .user-copy small { margin-top: .18rem; color: var(--muted); font-size: .65rem; }
-  .chevron { display: none; color: var(--muted); }
-  .user-popover { position: fixed; top: calc(var(--topbar-height) - 4px); right: 1rem; z-index: var(--z-dropdown); width: min(260px, calc(100vw - 2rem)); padding: .5rem; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow-float); }
+  .chevron { display: none; color: var(--muted); transition: transform 160ms var(--ease-out); }
+  .user-menu[open] .chevron { transform: rotate(180deg); }
+  .user-popover { position: fixed; top: calc(var(--topbar-height) - 4px); right: 1rem; z-index: var(--z-dropdown); width: min(260px, calc(100vw - 2rem)); padding: .5rem; border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow-float); transform-origin: top right; opacity:1; transform:translateY(0) scale(1); transition:opacity 160ms var(--ease-out), transform 160ms var(--ease-out); }
+  @starting-style { .user-menu[open] .user-popover { opacity:0; transform:translateY(-4px) scale(.98); } }
   .popover-user { display: grid; padding: .6rem .65rem .75rem; border-bottom: 1px solid var(--line); }
   .popover-user strong { font-size: .82rem; }
-  .popover-user span { color: var(--muted); font-size: .72rem; }
-  .user-popover a, .user-popover button { width: 100%; min-height: 40px; display: flex; align-items: center; padding: .45rem .65rem; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font-size: .8rem; text-align: left; cursor: pointer; }
-  .user-popover a:hover, .user-popover button:hover { background: var(--surface); color: var(--ink); }
+  .popover-user span { color: var(--muted); font-size: .72rem; overflow-wrap:anywhere; }
+  .user-popover > a { width: 100%; min-height: 40px; display: flex; align-items: center; gap:.55rem; padding: .45rem .65rem; border: 0; border-radius: 8px; background: transparent; color: var(--ink-soft); font-size: .8rem; text-align: left; cursor: pointer; }
   .page-content { width: min(100%, 1440px); margin: 0 auto; padding: 1.25rem 1rem 6.5rem; }
   .page-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.2rem; }
   .page-heading h1 { font-size: 1.45rem; font-weight: 760; }
   .page-heading p { max-width: 68ch; margin-top: .35rem; color: var(--muted); font-size: .84rem; }
   .page-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; }
   .bottom-nav { position: fixed; inset: auto 0 0; z-index: var(--z-sticky); min-height: 68px; display: grid; grid-template-columns: repeat(5, 1fr); padding: .4rem .25rem max(.4rem, env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: oklch(1 0 0 / .97); backdrop-filter: blur(12px); }
-  .bottom-nav a { min-width: 0; min-height: 52px; display: grid; place-items: center; align-content: center; gap: .1rem; border-radius: 9px; color: var(--muted); }
-  .bottom-nav a > span { font-size: 1rem; }
+  .bottom-nav a { min-width: 0; min-height: 52px; display: grid; place-items: center; align-content: center; gap: .15rem; border-radius: 9px; color: var(--muted); transition:background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+  .bottom-nav a:active { transform:scale(.96); }
+  .bottom-nav a > .ph { font-size: 1.05rem; }
   .bottom-nav small { max-width: 100%; overflow: hidden; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }
   .bottom-nav a.active { background: var(--primary-soft); color: var(--primary); font-weight: 750; }
+
+  @media (hover:hover) and (pointer:fine) {
+    .nav-item:hover { background: oklch(1 0 0 / .07); color: white; }
+    .topbar-icon:hover, .user-menu summary:hover, .user-popover > a:hover { background: var(--surface); color: var(--ink); }
+    .sidebar-close:hover { background:oklch(1 0 0 / .14); }
+  }
 
   @media (min-width: 700px) {
     .page-content { padding: 1.7rem 1.6rem 3rem; }
@@ -223,12 +279,20 @@ const isActive = (href: string) => href === activePath || (href !== `/${role ===
   }
 
   @media (min-width: 1024px) {
-    .sidebar { transform: none; }
+    .sidebar { transform: none; will-change:auto; }
     .sidebar-close, .menu-trigger, .drawer-backdrop { display: none; }
     .app-main { margin-left: var(--sidebar-width); }
     .topbar { padding: 0 1.75rem; }
     .page-content { padding: 2rem 1.75rem 3rem; }
     .bottom-nav { display: none; }
     .user-popover { position: absolute; top: calc(100% + .4rem); right: 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar, .user-popover, .chevron { transform:none; }
+  }
+
+  @media (prefers-reduced-transparency: reduce) {
+    .topbar, .bottom-nav { background:white; backdrop-filter:none; }
   }
 </style>

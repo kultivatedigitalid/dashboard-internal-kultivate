@@ -6,76 +6,48 @@ import StatusBadge from '@/components/StatusBadge.astro';
 import TaskRow from '@/components/TaskRow.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
-import { calculateProgress, formatIDR } from '@/lib/formatters';
+import { calculateProgress } from '@/lib/formatters';
 import { currentWeekStart, jakartaDate, netHours } from '@/lib/dates';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
-
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const sessions = data?.sessions ?? [];
 const approvedHours = sessions.filter((row) => row.status === 'approved').reduce((sum, row) => sum + netHours(row.check_in, row.check_out, row.break_minutes), 0);
 const overallTarget = data?.targets.find((row) => row.employee_id === user.id && row.target_type === 'overall')?.target_hours ?? data?.settings.overall_target_hours ?? 600;
-const progress = calculateProgress(approvedHours, overallTarget);
+const targetProgress = calculateProgress(approvedHours, overallTarget);
 const today = sessions.find((row) => row.work_date === jakartaDate());
-const tasks = (data?.tasks ?? []).filter((row) => !['completed', 'archived', 'draft'].includes(row.status)).slice(0, 3);
+const allTasks = data?.tasks ?? [];
+const activeTasks = allTasks.filter((row) => row.status !== 'completed');
+const priorityRank = { urgent: 0, todo: 1 } as const;
+const taskPreview = [...activeTasks].sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority] || (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999')).slice(0, 5);
 const report = data?.reports.find((row) => row.week_start === currentWeekStart());
-const allowanceTotal = (data?.allowances ?? []).filter((row) => row.status === 'approved').reduce((sum, row) => sum + row.transport_amount + row.meal_amount, 0);
 const latestEvaluation = data?.evaluations.find((row) => row.is_published && row.visibility === 'employee');
 ---
 
-<AppLayout title="Dashboard" heading={`Selamat datang, ${user.fullName.split(' ')[0]}`} description="Ringkasan aktivitas dan target kerja Anda." role="employee" user={user} activePath="/app">
+<AppLayout title="Dashboard" heading={`Selamat datang, ${user.fullName.split(' ')[0]}`} description="Ringkasan aktivitas, target kerja, dan tugas proyek Anda." role="employee" user={user} activePath="/app">
   <a slot="actions" class="button secondary" href="/app/weekly-report">Buat laporan</a>
   <a slot="actions" class="button" href="/app/attendance">{today ? 'Buka absensi' : 'Check-in sekarang'}</a>
-
-  {loadError && <div class="alert danger" role="alert">Database tidak dapat dibaca. Pastikan migration sudah diterapkan. ({loadError})</div>}
+  {loadError && <div class="alert danger" role="alert">Database tidak dapat dibaca. ({loadError})</div>}
 
   <section class="progress-hero panel">
-    <div>
-      <span>Target keseluruhan</span>
-      <h2>{approvedHours.toFixed(1)} dari {overallTarget} jam</h2>
-      <ProgressBar value={progress} showValue />
-    </div>
-    <div class="today">
-      <span>Absensi hari ini</span>
-      <StatusBadge label={!today ? 'Belum check-in' : today.check_out ? 'Selesai' : 'Sedang bekerja'} tone={!today ? 'warning' : 'success'} />
-      <strong>{today ? new Date(today.check_in).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong>
-      <a class="button" href="/app/attendance">{today ? 'Lihat absensi' : 'Mulai hari kerja'}</a>
-    </div>
+    <div><span>Target keseluruhan</span><h2>{approvedHours.toFixed(1)} dari {overallTarget} jam</h2><ProgressBar value={targetProgress} showValue /></div>
+    <div class="today"><span>Absensi hari ini</span><StatusBadge label={!today ? 'Belum check-in' : today.check_out ? 'Selesai' : 'Sedang bekerja'} tone={!today ? 'warning' : 'success'} /><strong>{today ? new Date(today.check_in).toLocaleTimeString('id-ID', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit' }) : '--:--'}</strong><a class="button" href="/app/attendance">{today ? 'Lihat absensi' : 'Mulai hari kerja'}</a></div>
   </section>
 
   <section class="metrics-grid">
     <StatBlock label="Jam disetujui" value={`${approvedHours.toFixed(1)} jam`} helper={`target ${overallTarget} jam`} />
-    <StatBlock label="Tugas aktif" value={String(tasks.length)} helper="tugas yang perlu dikerjakan" />
+    <StatBlock label="Tugas aktif" value={String(activeTasks.length)} helper="perlu dikerjakan" />
+    <StatBlock label="Tugas selesai" value={String(allTasks.filter((row) => row.status === 'completed').length)} helper={`${allTasks.length} total tugas`} />
     <StatBlock label="Laporan minggu ini" value={report?.status ?? 'Belum dibuat'} helper={currentWeekStart()} />
-    <StatBlock label="Tunjangan disetujui" value={formatIDR(allowanceTotal)} helper="seluruh periode" />
   </section>
 
   <div class="dashboard-columns">
-    <section class="panel">
-      <div class="panel-header"><div><h2>Tugas prioritas</h2><p>Urut berdasarkan deadline.</p></div><a class="text-link" href="/app/tasks">Lihat semua</a></div>
-      {tasks.length && data ? tasks.map((task) => <TaskRow task={toDashboardTask(task, data)} />) : <EmptyState title="Belum ada tugas" description="Tugas dari admin akan muncul di sini." />}
-    </section>
-    <aside class="panel panel-body">
-      <h2>Laporan dan evaluasi</h2>
-      <p>Status laporan: <strong>{report?.status ?? 'belum dibuat'}</strong></p>
-      <a class="button secondary" href="/app/weekly-report">{report ? 'Buka laporan' : 'Mulai laporan'}</a>
-      <hr />
-      {latestEvaluation ? <div><strong>{latestEvaluation.title}</strong><p>{latestEvaluation.notes}</p><a href="/app/profile#evaluations">Baca evaluasi →</a></div> : <p class="muted">Belum ada evaluasi yang dipublikasikan.</p>}
-    </aside>
+    <section class="panel task-panel"><div class="panel-header"><div><h2>Task Manager</h2><p>Tugas aktif berdasarkan urgency dan deadline.</p></div><a class="text-link" href="/app/tasks">Lihat semua</a></div>{taskPreview.length && data ? taskPreview.map((task) => <TaskRow task={toDashboardTask(task, data)} />) : <EmptyState title="Belum ada tugas aktif" description="Tugas dari admin akan muncul di sini." />}</section>
+    <aside class="panel panel-body"><h2>Laporan dan evaluasi</h2><p>Status laporan: <strong>{report?.status ?? 'belum dibuat'}</strong></p><a class="button secondary" href="/app/weekly-report">{report ? 'Buka laporan' : 'Mulai laporan'}</a><hr />{latestEvaluation ? <div><strong>{latestEvaluation.title}</strong><p>{latestEvaluation.notes}</p><a href="/app/profile#evaluations">Baca evaluasi <i class="ph ph-arrow-right" aria-hidden="true"></i></a></div> : <p class="muted">Belum ada evaluasi yang dipublikasikan.</p>}</aside>
   </div>
 </AppLayout>
 
-<style>
-  .progress-hero { display:grid; gap:1rem; padding:1.25rem; margin-bottom:1rem; }
-  .progress-hero h2 { margin:.35rem 0 1rem; }
-  .today { display:grid; gap:.7rem; padding:1rem; border-radius:10px; background:var(--primary-soft); }
-  .today strong { font-size:2rem; }
-  .metrics-grid { margin-bottom:1rem; }
-  .dashboard-columns { display:grid; gap:1rem; }
-  .panel-body hr { margin:1.25rem 0; border:0; border-top:1px solid var(--line); }
-  .panel-body p { margin:.6rem 0 1rem; color:var(--muted); }
-  @media(min-width:900px){.progress-hero{grid-template-columns:1.4fr .6fr}.dashboard-columns{grid-template-columns:1.4fr .6fr}}
-</style>
+<style>.progress-hero{display:grid;gap:1rem;padding:1.25rem;margin-bottom:1rem}.progress-hero h2{margin:.35rem 0 1rem}.today{display:grid;gap:.7rem;padding:1rem;border-radius:10px;background:var(--primary-soft)}.today strong{font-size:2rem}.metrics-grid{margin-bottom:1rem}.dashboard-columns{display:grid;gap:1rem}.task-panel{overflow:hidden}.panel-body hr{margin:1.25rem 0;border:0;border-top:1px solid var(--line)}.panel-body p{margin:.6rem 0 1rem;color:var(--muted)}.panel-body a:not(.button){display:inline-flex;align-items:center;gap:.3rem;color:var(--primary);font-weight:700}@media(min-width:1000px){.progress-hero{grid-template-columns:1.4fr .6fr}.dashboard-columns{grid-template-columns:1.4fr .6fr}}</style>

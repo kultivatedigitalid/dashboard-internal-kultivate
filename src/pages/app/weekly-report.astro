@@ -11,7 +11,7 @@ const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 const result = Astro.getActionResult(actions.saveWeeklyReport);
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
 const weekStart = currentWeekStart();
 const report = data?.reports.find((row) => row.week_start === weekStart);
@@ -28,7 +28,7 @@ const locked = report && !['draft', 'rejected'].includes(report.status);
   <div class="report-grid">
     <form method="POST" action={actions.saveWeeklyReport} class="panel panel-body stack">
       <input type="hidden" name="weekStart" value={weekStart} />
-      <label class="field">Ringkasan<textarea class="textarea tall" name="summary" maxlength="5000" required disabled={locked}>{report?.summary ?? ''}</textarea></label>
+      <label class="field"><span class="field-label">Ringkasan <span class="required-mark" aria-hidden="true">*</span></span><textarea class="textarea tall" name="summary" maxlength="5000" required disabled={locked}>{report?.summary ?? ''}</textarea></label>
       <label class="field">Pencapaian<textarea class="textarea" name="achievements" maxlength="5000" disabled={locked}>{report?.achievements ?? ''}</textarea></label>
       <label class="field">Kendala<textarea class="textarea" name="blockers" maxlength="5000" disabled={locked}>{report?.blockers ?? ''}</textarea></label>
       <label class="field">Rencana berikutnya<textarea class="textarea" name="nextPlan" maxlength="5000" disabled={locked}>{report?.next_plan ?? ''}</textarea></label>

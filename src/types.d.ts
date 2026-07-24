@@ -3,5 +3,6 @@ declare namespace App {
     user: import('./lib/types').AppUser | null;
     role: import('./lib/types').AppRole | null;
     otpRequired: boolean;
+    hasTaskNotifications: boolean;
   }
 }

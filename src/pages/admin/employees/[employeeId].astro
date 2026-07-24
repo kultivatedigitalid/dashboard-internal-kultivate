@@ -4,7 +4,7 @@ import AppLayout from '@/layouts/AppLayout.astro';
 import StatusBadge from '@/components/StatusBadge.astro';
 import EmptyState from '@/components/EmptyState.astro';
 import TaskRow from '@/components/TaskRow.astro';
-import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
+import { loadDashboardData, taskEmployeeIds, toDashboardTask } from '@/lib/dashboard-data';
 import { formatDate } from '@/lib/formatters';
 import { netHours } from '@/lib/dates';
 
@@ -19,7 +19,7 @@ const employee = data?.profiles.find((row) => row.id === employeeId && row.role 
 if (!employee && !loadError) Astro.response.status = 404;
 const sessions = data?.sessions.filter((row) => row.employee_id === employeeId) ?? [];
 const approvedHours = sessions.filter((row) => row.status === 'approved').reduce((sum, row) => sum + netHours(row.check_in, row.check_out, row.break_minutes), 0);
-const tasks = data?.tasks.filter((row) => row.assignee_id === employeeId) ?? [];
+const tasks = data?.tasks.filter((row) => taskEmployeeIds(data!, row.id).includes(employeeId)) ?? [];
 const reports = data?.reports.filter((row) => row.employee_id === employeeId) ?? [];
 const evaluations = data?.evaluations.filter((row) => row.employee_id === employeeId) ?? [];
 ---

@@ -1,0 +1,160 @@
+---
+import EmptyState from './EmptyState.astro';
+import StatusBadge from './StatusBadge.astro';
+import type { DashboardTask } from '@/lib/types';
+
+interface Props {
+  tasks: DashboardTask[];
+  admin?: boolean;
+  searchPath: string;
+  filters: {
+    q: string;
+    priority: string;
+    employee: string;
+    task: string;
+    status: string;
+  };
+  hasFilters?: boolean;
+  title?: string;
+  emptyActionHref?: string;
+}
+
+const {
+  tasks,
+  admin = false,
+  searchPath,
+  filters,
+  hasFilters = false,
+  title = admin ? 'Daftar tugas tim' : 'Tugas saya',
+  emptyActionHref,
+} = Astro.props;
+const formId = admin ? 'admin-task-table-filters' : 'employee-task-table-filters';
+const priorityMeta = {
+  todo: { label: 'To-do', tone: 'neutral' as const },
+  urgent: { label: 'Urgent', tone: 'danger' as const },
+};
+const statusMeta = {
+  not_started: { label: 'Belum Mulai', tone: 'neutral' as const },
+  in_progress: { label: 'Proses', tone: 'info' as const },
+  completed: { label: 'Selesai', tone: 'success' as const },
+};
+---
+
+<section class="panel task-table-panel">
+  <div class="panel-header table-heading">
+    <div>
+      <h2>{title}</h2>
+      <p>{tasks.length} tugas ditampilkan.</p>
+    </div>
+  </div>
+
+  <form class="task-search" id={formId} method="GET" action={searchPath}>
+    <label class="task-search-control">
+      <span class="sr-only">Cari tugas</span>
+      <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+      <input name="q" type="search" value={filters.q} placeholder="Cari tugas, proyek, karyawan, priority, atau status" />
+    </label>
+    <button class="button" type="submit">Cari</button>
+    {hasFilters && <a class="button secondary" href={searchPath}>Reset</a>}
+  </form>
+
+  <div class="table-wrap task-table-wrap">
+    <table class="task-table">
+      <caption class="sr-only">Daftar tugas dengan filter per kolom</caption>
+      <thead>
+        <tr>
+          <th scope="col">Priority</th>
+          <th scope="col">Nama Karyawan</th>
+          <th scope="col">Nama Tugas</th>
+          <th scope="col">Status</th>
+          <th scope="col"><span class="sr-only">Buka tugas</span></th>
+        </tr>
+        <tr class="column-filters">
+          <th>
+            <label class="sr-only" for={`${formId}-priority`}>Filter priority</label>
+            <select class="select compact" id={`${formId}-priority`} name="priority" form={formId} data-auto-filter>
+              <option value="">Semua</option>
+              <option value="urgent" selected={filters.priority === 'urgent'}>Urgent</option>
+              <option value="todo" selected={filters.priority === 'todo'}>To-do</option>
+            </select>
+          </th>
+          <th>
+            <label class="sr-only" for={`${formId}-employee`}>Filter nama karyawan</label>
+            <input class="input compact" id={`${formId}-employee`} name="employee" form={formId} value={filters.employee} placeholder="Filter karyawan" />
+          </th>
+          <th>
+            <label class="sr-only" for={`${formId}-task`}>Filter nama tugas</label>
+            <input class="input compact" id={`${formId}-task`} name="task" form={formId} value={filters.task} placeholder="Filter nama tugas" />
+          </th>
+          <th>
+            <label class="sr-only" for={`${formId}-status`}>Filter status</label>
+            <select class="select compact" id={`${formId}-status`} name="status" form={formId} data-auto-filter>
+              <option value="">Semua</option>
+              <option value="not_started" selected={filters.status === 'not_started'}>Belum Mulai</option>
+              <option value="in_progress" selected={filters.status === 'in_progress'}>Proses</option>
+              <option value="completed" selected={filters.status === 'completed'}>Selesai</option>
+            </select>
+          </th>
+          <th><button class="icon-button filter-submit" type="submit" form={formId} aria-label="Terapkan filter"><i class="ph ph-funnel" aria-hidden="true"></i></button></th>
+        </tr>
+      </thead>
+      <tbody>
+        {tasks.map((task) => {
+          const href = admin ? `/admin/tasks/${task.id}` : `/app/tasks/${task.id}`;
+          return (
+            <tr
+              class:list={{ 'completed-row': task.status === 'completed' }}
+              data-task-row
+              data-href={href}
+              tabindex="0"
+              aria-label={`Buka detail tugas ${task.title}`}
+            >
+              <td><StatusBadge label={priorityMeta[task.priority].label} tone={priorityMeta[task.priority].tone} /></td>
+              <td><span class="employee-cell" title={task.assignees.join(', ')}>{task.assignees.join(', ')}</span></td>
+              <td><a class="task-name" href={href}>{task.title}</a></td>
+              <td><div class="status-cell"><StatusBadge label={statusMeta[task.status].label} tone={statusMeta[task.status].tone} /><small>{task.progress}%</small></div></td>
+              <td><a class="icon-button row-open" href={href} aria-label={`Buka tugas ${task.title}`}><i class="ph ph-arrow-right" aria-hidden="true"></i></a></td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  </div>
+
+  {!tasks.length && (emptyActionHref ? <EmptyState title="Tidak ada tugas" description="Belum ada tugas yang cocok dengan pencarian atau filter." actionLabel="Buat tugas" actionHref={emptyActionHref} /> : <EmptyState title="Tidak ada tugas" description="Belum ada tugas yang cocok dengan pencarian atau filter." />)}
+</section>
+
+<script>
+  document.querySelectorAll<HTMLSelectElement>('[data-auto-filter]').forEach((control) => {
+    if (control.dataset.bound === 'true') return;
+    control.dataset.bound = 'true';
+    control.addEventListener('change', () => control.form?.requestSubmit());
+  });
+
+  document.querySelectorAll<HTMLTableRowElement>('[data-task-row]').forEach((row) => {
+    if (row.dataset.bound === 'true') return;
+    row.dataset.bound = 'true';
+
+    const openTask = () => {
+      if (row.dataset.href) window.location.assign(row.dataset.href);
+    };
+
+    row.addEventListener('click', (event) => {
+      if (event.target instanceof Element && event.target.closest('a, button, input, select, textarea, label')) return;
+      openTask();
+    });
+
+    row.addEventListener('keydown', (event) => {
+      if (event.target !== row || (event.key !== 'Enter' && event.key !== ' ')) return;
+      event.preventDefault();
+      openTask();
+    });
+  });
+</script>
+
+<style>
+  .task-table-panel{overflow:hidden}.table-heading{border-bottom:0;padding-bottom:.7rem}.task-search{display:flex;align-items:center;gap:.55rem;padding:0 1.1rem 1rem}.task-search-control{position:relative;min-width:0;display:flex;align-items:center;flex:1}.task-search-control>.ph{position:absolute;left:.8rem;color:var(--muted);pointer-events:none}.task-search-control input{width:100%;min-height:44px;padding:.65rem .8rem .65rem 2.35rem;border:1px solid var(--line-strong);border-radius:var(--radius-control);background:white;color:var(--ink)}.task-search-control input:focus{border-color:var(--primary);outline:0;box-shadow:0 0 0 3px var(--primary-soft)}.task-table-wrap{border-top:1px solid var(--line)}.task-table{min-width:780px;table-layout:fixed}.task-table th:nth-child(1){width:150px}.task-table th:nth-child(2){width:29%}.task-table th:nth-child(3){width:34%}.task-table th:nth-child(4){width:180px}.task-table th:last-child{width:64px}.column-filters th{padding:.55rem .7rem;background:white}.compact{min-height:38px;padding:.45rem .6rem;border-radius:8px;font-size:.78rem}.employee-cell,.task-name{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.task-name{font-weight:720;color:var(--ink)}.status-cell{display:flex;align-items:center;gap:.5rem}.status-cell small{color:var(--muted);font-variant-numeric:tabular-nums}.row-open,.filter-submit{width:38px;height:38px}.row-open{color:var(--primary)}.completed-row{background:var(--surface)}
+  [data-task-row]{cursor:pointer}[data-task-row]:focus-visible{outline-offset:-3px}
+  @media(max-width:640px){.task-search{align-items:stretch;flex-wrap:wrap}.task-search-control{flex-basis:100%}.task-search>.button{flex:1}.task-table th,.task-table td{padding:.72rem}}
+  @media(hover:hover) and (pointer:fine){.task-name:hover{color:var(--primary);text-decoration:underline;text-underline-offset:3px}.row-open:hover{background:var(--primary-soft)}}
+</style>

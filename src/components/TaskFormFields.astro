@@ -1,0 +1,167 @@
+---
+import type { ProfileRow, TaskRow } from '@/lib/dashboard-data';
+
+interface Props {
+  employees: ProfileRow[];
+  task?: TaskRow;
+  selectedEmployeeIds?: string[];
+  includeProgress?: boolean;
+  fieldErrors?: Record<string, string[] | undefined>;
+}
+const { employees, task, selectedEmployeeIds = [], includeProgress = false, fieldErrors = {} } = Astro.props;
+const noDeadline = Boolean(task && !task.due_date);
+const errorText = (key: string) => fieldErrors[key]?.join(', ');
+---
+
+<div class="task-form-grid" data-task-fields>
+  <section class="panel panel-body stack task-definition">
+    <label class="field" data-field="title">
+      <span class="field-label">Task Name <span class="required-mark" aria-hidden="true">*</span></span>
+      <input class="input" name="title" value={task?.title ?? ''} minlength="3" maxlength="240" required data-message="Task Name wajib diisi minimal 3 karakter." aria-invalid={Boolean(errorText('title'))} />
+      {errorText('title') && <span class="field-error">{errorText('title')}</span>}
+      <span class="field-error" data-client-error hidden></span>
+    </label>
+
+    <label class="field" data-field="projectDescription">
+      <span class="field-label">Project Description <span class="required-mark" aria-hidden="true">*</span></span>
+      <textarea class="textarea tall" name="projectDescription" minlength="3" maxlength="5000" required data-message="Project Description wajib diisi minimal 3 karakter." aria-invalid={Boolean(errorText('projectDescription'))}>{task?.project_description ?? ''}</textarea>
+      {errorText('projectDescription') && <span class="field-error">{errorText('projectDescription')}</span>}
+      <span class="field-error" data-client-error hidden></span>
+    </label>
+
+    <label class="field" data-field="howTo">
+      <span class="field-label">Detail How-to <span class="optional-label">(opsional)</span></span>
+      <textarea class="textarea" name="howTo" maxlength="5000" aria-invalid={Boolean(errorText('howTo'))} placeholder="Jelaskan langkah atau cara pengerjaan tugas.">{task?.how_to ?? ''}</textarea>
+      <span class="field-hint">Boleh dikosongkan jika cara pengerjaan sudah dipahami.</span>
+      {errorText('howTo') && <span class="field-error">{errorText('howTo')}</span>}
+    </label>
+
+    <label class="field" data-field="successCriteria">
+      <span class="field-label">Success Criteria <span class="optional-label">(opsional)</span></span>
+      <textarea class="textarea" name="successCriteria" maxlength="5000" aria-invalid={Boolean(errorText('successCriteria'))} placeholder="Tuliskan kondisi yang menandakan tugas selesai dengan baik.">{task?.success_criteria ?? ''}</textarea>
+      <span class="field-hint">Gunakan hasil yang dapat diperiksa jika kriterianya tersedia.</span>
+      {errorText('successCriteria') && <span class="field-error">{errorText('successCriteria')}</span>}
+    </label>
+  </section>
+
+  <aside class="stack">
+    <section class="panel panel-body stack">
+      <fieldset class="choice-group" data-field="priority">
+        <legend>Priority <span class="required-mark" aria-hidden="true">*</span></legend>
+        <label class="priority-option"><input type="radio" name="priority" value="urgent" checked={task?.priority === 'urgent'} required data-message="Pilih priority Urgent atau To-do." /><span><strong>Urgent</strong><small>Harus segera ditangani</small></span></label>
+        <label class="priority-option"><input type="radio" name="priority" value="todo" checked={!task || task.priority === 'todo'} /><span><strong>To-do</strong><small>Masuk antrean pekerjaan</small></span></label>
+        {errorText('priority') && <span class="field-error">{errorText('priority')}</span>}
+        <span class="field-error" data-client-error hidden></span>
+      </fieldset>
+
+      <fieldset class="choice-group employee-picker" data-field="assigneeIds">
+        <legend>Karyawan yang Mengerjakan <span class="required-mark" aria-hidden="true">*</span></legend>
+        <p>Pilih satu atau beberapa karyawan aktif.</p>
+        <div class="employee-options">
+          {employees.map((employee) => (
+            <label class="employee-option">
+              <input type="checkbox" name="assigneeIds" value={employee.id} checked={selectedEmployeeIds.includes(employee.id)} />
+              <span class="avatar mini">{employee.full_name.split(' ').filter(Boolean).slice(0,2).map((part) => part[0]).join('')}</span>
+              <span><strong>{employee.full_name}</strong><small>{employee.employee_code ?? employee.email}</small></span>
+            </label>
+          ))}
+        </div>
+        {!employees.length && <p class="field-error">Belum ada karyawan aktif. Aktifkan atau undang karyawan terlebih dahulu.</p>}
+        {errorText('assigneeIds') && <span class="field-error">{errorText('assigneeIds')}</span>}
+        <span class="field-error" data-client-error hidden></span>
+      </fieldset>
+    </section>
+
+    <section class="panel panel-body stack">
+      <fieldset class="choice-group" data-field="deadlineMode">
+        <legend>Deadline atau No Deadline <span class="required-mark" aria-hidden="true">*</span></legend>
+        <div class="deadline-modes">
+          <label class="deadline-option"><input type="radio" name="deadlineMode" value="dated" checked={!noDeadline} required /><span>Dengan deadline</span></label>
+          <label class="deadline-option"><input type="radio" name="deadlineMode" value="none" checked={noDeadline} /><span>No Deadline</span></label>
+        </div>
+        {errorText('deadlineMode') && <span class="field-error">{errorText('deadlineMode')}</span>}
+        <span class="field-error" data-client-error hidden></span>
+      </fieldset>
+      <label class="field" data-deadline-field data-field="dueDate">
+        <span class="field-label">Tanggal deadline <span class="required-mark" aria-hidden="true">*</span></span>
+        <input class="input" name="dueDate" type="date" value={task?.due_date ?? ''} data-deadline data-message="Pilih tanggal deadline atau pilih No Deadline." />
+        {errorText('dueDate') && <span class="field-error">{errorText('dueDate')}</span>}
+        <span class="field-error" data-client-error hidden></span>
+      </label>
+      {includeProgress && (
+        <label class="field" data-field="progress">
+          <span class="field-label">Progress (%) <span class="required-mark" aria-hidden="true">*</span></span>
+          <input class="input" name="progress" type="number" min="0" max="100" value={task?.progress ?? 0} required data-message="Progress wajib berada antara 0 sampai 100." />
+          <small class="field-hint">Status ditentukan otomatis dari progress.</small>
+          {errorText('progress') && <span class="field-error">{errorText('progress')}</span>}
+          <span class="field-error" data-client-error hidden></span>
+        </label>
+      )}
+    </section>
+  </aside>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-task-fields]').forEach((root) => {
+    if (root.dataset.bound === 'true') return;
+    root.dataset.bound = 'true';
+    const form = root.closest<HTMLFormElement>('form');
+    const deadlineInputs = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="deadlineMode"]'));
+    const deadlineInput = root.querySelector<HTMLInputElement>('[data-deadline]');
+    const deadlineField = root.querySelector<HTMLElement>('[data-deadline-field]');
+    const assignees = Array.from(root.querySelectorAll<HTMLInputElement>('input[name="assigneeIds"]'));
+
+    const showClientError = (fieldName: string, message = '') => {
+      const field = root.querySelector<HTMLElement>(`[data-field="${fieldName}"]`);
+      const target = field?.querySelector<HTMLElement>('[data-client-error]');
+      if (!target) return;
+      target.textContent = message;
+      target.hidden = !message;
+    };
+
+    const syncDeadline = () => {
+      const noDeadlineSelected = deadlineInputs.some((input) => input.checked && input.value === 'none');
+      if (deadlineInput) {
+        deadlineInput.disabled = noDeadlineSelected;
+        deadlineInput.required = !noDeadlineSelected;
+        if (noDeadlineSelected) deadlineInput.value = '';
+      }
+      deadlineField?.classList.toggle('is-disabled', noDeadlineSelected);
+      if (noDeadlineSelected) showClientError('dueDate');
+    };
+
+    deadlineInputs.forEach((input) => input.addEventListener('change', syncDeadline));
+    assignees.forEach((input) => input.addEventListener('change', () => {
+      if (assignees.some((item) => item.checked)) showClientError('assigneeIds');
+    }));
+    root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[required]').forEach((control) => {
+      control.addEventListener('input', () => {
+        if (control.checkValidity()) showClientError(control.name);
+      });
+    });
+
+    form?.addEventListener('submit', (event) => {
+      let firstInvalid: HTMLElement | null = null;
+      root.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>('[required]:not(:disabled)').forEach((control) => {
+        const valid = control.checkValidity();
+        showClientError(control.name, valid ? '' : control.dataset.message || control.validationMessage);
+        if (!valid && !firstInvalid) firstInvalid = control;
+      });
+      if (!assignees.some((input) => input.checked)) {
+        showClientError('assigneeIds', 'Pilih minimal satu karyawan yang mengerjakan.');
+        if (!firstInvalid) firstInvalid = assignees[0] ?? root.querySelector<HTMLElement>('[data-field="assigneeIds"]');
+      }
+      if (firstInvalid) {
+        event.preventDefault();
+        firstInvalid.focus();
+      }
+    });
+    syncDeadline();
+  });
+</script>
+
+<style>
+  .task-form-grid{display:grid;gap:1rem}.tall{min-height:160px}.required-mark{color:var(--danger);font-weight:800}.optional-label{color:var(--muted);font-size:.75rem;font-weight:570}.choice-group{display:grid;gap:.55rem;margin:0;padding:0;border:0}.choice-group legend{margin-bottom:.35rem;color:var(--ink-soft);font-size:.8125rem;font-weight:720}.choice-group>p{margin:0;color:var(--muted);font-size:.75rem}.priority-option,.employee-option,.deadline-option{display:flex;align-items:center;gap:.7rem;padding:.72rem;border:1px solid var(--line);border-radius:10px;background:white;cursor:pointer;transition:border-color 160ms var(--ease-out),background-color 160ms var(--ease-out)}.priority-option:has(input:checked),.employee-option:has(input:checked),.deadline-option:has(input:checked){border-color:var(--primary);background:var(--primary-soft)}.priority-option input,.employee-option input,.deadline-option input{accent-color:var(--primary)}.priority-option span,.employee-option>span:last-child{min-width:0;display:grid}.priority-option small,.employee-option small{overflow:hidden;color:var(--muted);font-size:.68rem;text-overflow:ellipsis;white-space:nowrap}.employee-options{max-height:330px;display:grid;gap:.45rem;overflow:auto}.avatar.mini{width:30px;height:30px;font-size:.65rem}.deadline-modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem}.deadline-option{justify-content:center;font-size:.8rem;font-weight:680}[data-deadline-field].is-disabled{opacity:.52}.field-error[hidden]{display:none}
+  @media(hover:hover) and (pointer:fine){.priority-option:hover,.employee-option:hover,.deadline-option:hover{border-color:var(--line-strong)}}
+  @media(min-width:980px){.task-form-grid{grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);align-items:start}}
+</style>

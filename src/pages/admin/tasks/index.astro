@@ -1,28 +1,55 @@
 ---
 import AppLayout from '@/layouts/AppLayout.astro';
-import TaskRow from '@/components/TaskRow.astro';
-import EmptyState from '@/components/EmptyState.astro';
+import TaskTable from '@/components/TaskTable.astro';
 import { loadDashboardData, toDashboardTask } from '@/lib/dashboard-data';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 let loadError = '';
-let data;
+let data: Awaited<ReturnType<typeof loadDashboardData>> | undefined;
 try { data = await loadDashboardData(Astro); } catch (error) { loadError = error instanceof Error ? error.message : 'Data gagal dimuat.'; }
-const q = Astro.url.searchParams.get('q')?.toLowerCase() ?? '';
-const employee = Astro.url.searchParams.get('employee') ?? '';
-const status = Astro.url.searchParams.get('status') ?? '';
-const tasks = (data?.tasks ?? []).filter((row) => (!q || row.title.toLowerCase().includes(q)) && (!employee || row.assignee_id === employee) && (!status || row.status === status));
-const employees = data?.profiles.filter((row) => row.role === 'employee') ?? [];
+
+const params = Astro.url.searchParams;
+const filters = {
+  q: params.get('q')?.trim().toLowerCase() ?? '',
+  priority: params.get('priority') ?? '',
+  employee: params.get('employee')?.trim().toLowerCase() ?? '',
+  task: params.get('task')?.trim().toLowerCase() ?? '',
+  status: params.get('status') ?? '',
+};
+const priorityLabels = { urgent: 'urgent', todo: 'to-do' } as const;
+const statusLabels = { not_started: 'belum mulai', in_progress: 'proses', completed: 'selesai' } as const;
+const allTasks = data ? data.tasks.map((task) => toDashboardTask(task, data!)) : [];
+const priorityRank = { urgent: 0, todo: 1 } as const;
+const tasks = allTasks.filter((task) => {
+  const employees = task.assignees.join(', ').toLowerCase();
+  const searchable = [task.title, task.projectDescription, employees, priorityLabels[task.priority], statusLabels[task.status]].join(' ').toLowerCase();
+  return (!filters.q || searchable.includes(filters.q))
+    && (!filters.priority || task.priority === filters.priority)
+    && (!filters.employee || employees.includes(filters.employee))
+    && (!filters.task || task.title.toLowerCase().includes(filters.task))
+    && (!filters.status || task.status === filters.status);
+}).sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority] || a.title.localeCompare(b.title));
+const hasFilters = Object.values(filters).some(Boolean);
 ---
 
-<AppLayout title="Tugas admin" heading="Tugas" description="Buat, edit, dan pantau progres tugas seluruh tim." role="admin" user={user} activePath="/admin/tasks">
-  <a slot="actions" class="button" href="/admin/tasks/new">Buat tugas baru</a>
-  {loadError && <div class="alert danger">{loadError}</div>}
-  <section class="panel">
-    <div class="panel-header"><form method="GET" class="filters"><input class="input" name="q" value={q} placeholder="Cari tugas..." /><select class="select" name="employee"><option value="">Semua karyawan</option>{employees.map((row) => <option value={row.id} selected={employee === row.id}>{row.full_name}</option>)}</select><select class="select" name="status"><option value="">Semua status</option>{['draft','not_started','in_progress','in_review','completed','archived'].map((value) => <option value={value} selected={status === value}>{value}</option>)}</select><button class="button secondary">Terapkan</button></form></div>
-    {tasks.length && data ? tasks.map((task) => <TaskRow task={toDashboardTask(task, data)} admin />) : <EmptyState title="Tidak ada tugas" description="Buat tugas baru atau ubah filter." actionLabel="Buat tugas" actionHref="/admin/tasks/new" />}
+<AppLayout title="Tugas" heading="Tugas" description="Buat, atur, dan pantau tugas tim dalam satu tabel." role="admin" user={user} activePath="/admin/tasks">
+  <a slot="actions" class="button" href="/admin/tasks/new"><i class="ph ph-plus" aria-hidden="true"></i>Buat tugas</a>
+  {loadError && <div class="alert danger" role="alert">{loadError}</div>}
+  {params.get('created') === 'success' && <div class="alert success" role="status">Tugas berhasil dibuat dan ditambahkan ke tabel.</div>}
+  {params.get('deleted') === 'success' && <div class="alert success" role="status">Tugas berhasil dihapus.</div>}
+
+  <section class="task-overview" aria-label="Ringkasan tugas">
+    <div><strong>{allTasks.length}</strong><span>Total tugas</span></div>
+    <div><strong>{allTasks.filter((task) => task.status === 'not_started').length}</strong><span>Belum Mulai</span></div>
+    <div><strong>{allTasks.filter((task) => task.status === 'in_progress').length}</strong><span>Proses</span></div>
+    <div><strong>{allTasks.filter((task) => task.status === 'completed').length}</strong><span>Selesai</span></div>
+    <div><strong>{allTasks.filter((task) => task.priority === 'urgent' && task.status !== 'completed').length}</strong><span>Urgent aktif</span></div>
   </section>
+
+  <TaskTable tasks={tasks} admin searchPath="/admin/tasks" filters={filters} hasFilters={hasFilters} emptyActionHref="/admin/tasks/new" />
 </AppLayout>
 
-<style>.filters{width:100%;display:grid;gap:.6rem}@media(min-width:900px){.filters{grid-template-columns:1fr 220px 190px auto}}</style>
+<style>
+  .task-overview{display:flex;gap:1px;margin-bottom:1rem;overflow-x:auto;background:var(--line)}.task-overview>div{min-width:130px;display:grid;gap:.15rem;flex:1;padding:1rem;background:white}.task-overview strong{font-size:1.3rem;font-variant-numeric:tabular-nums}.task-overview span{color:var(--muted);font-size:.7rem}
+</style>

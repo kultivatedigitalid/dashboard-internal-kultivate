@@ -2,44 +2,123 @@
 import { actions } from 'astro:actions';
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Logo from '@/components/Logo.astro';
+import LogoutDialog from '@/components/LogoutDialog.astro';
 
 const user = Astro.locals.user;
 if (!user) return Astro.redirect('/login');
 if (!Astro.locals.otpRequired) return Astro.redirect(Astro.locals.role === 'admin' ? '/admin' : '/app');
 
-const verifyResult = Astro.getActionResult(actions.verifyFirstLoginOtp);
+const verifyResult = Astro.getActionResult(actions.verifyLoginOtp);
 if (verifyResult && !verifyResult.error) return Astro.redirect(verifyResult.data.redirectTo);
-const resendResult = Astro.getActionResult(actions.resendFirstLoginOtp);
+const resendResult = Astro.getActionResult(actions.resendLoginOtp);
 const result = verifyResult ?? resendResult;
+const resetCooldown = Boolean(resendResult && !resendResult.error) || Astro.url.searchParams.get('sent') === '1';
 ---
 
 <BaseLayout title="Verifikasi OTP" bodyClass="auth-body">
-  <main class="otp-shell">
+  <main class="otp-shell" data-reset-cooldown={String(resetCooldown)}>
     <section class="otp-card">
-      <Logo />
-      <div>
-        <span class="eyebrow">Login pertama</span>
-        <h1>Verifikasi email Anda</h1>
-        <p>Kode OTP 6 digit telah dikirim ke <strong>{user.email}</strong>. Kode berlaku 10 menit dan maksimal 5 percobaan.</p>
+      <div class="otp-card__brand"><Logo /></div>
+      <div class="otp-heading">
+        <span class="otp-icon" aria-hidden="true"><i class="ph ph-shield-check"></i></span>
+        <div>
+          <span class="eyebrow">Verifikasi keamanan</span>
+          <h1>Masukkan kode dari email</h1>
+        </div>
       </div>
+      <p class="otp-description">
+        Kami mengirim kode 6 digit ke <strong>{user.email}</strong>. Kode berlaku selama 10 menit dan maksimal 5 percobaan.
+      </p>
       {result?.error && <div class="alert danger" role="alert">{result.error.message}</div>}
       {result && !result.error && 'message' in result.data && <div class="alert success" role="status">{result.data.message}</div>}
-      <form method="POST" action={actions.verifyFirstLoginOtp} class="otp-form">
-        <label class="field">Kode OTP
-          <input class="input otp-input" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" minlength="6" maxlength="6" placeholder="000000" required autofocus />
+      <form method="POST" action={actions.verifyLoginOtp} class="otp-form">
+        <label class="field"><span class="field-label">Kode OTP <span class="required-mark" aria-hidden="true">*</span></span>
+          <input
+            class="input otp-input"
+            name="code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="[0-9]{6}"
+            minlength="6"
+            maxlength="6"
+            placeholder="000000"
+            aria-describedby="otp-hint"
+            required
+            autofocus
+          />
         </label>
-        <button class="button" type="submit">Verifikasi dan masuk</button>
+        <span class="field-hint" id="otp-hint">Jangan bagikan kode ini kepada siapa pun.</span>
+        <button class="button" type="submit">
+          <i class="ph ph-shield-check" aria-hidden="true"></i>
+          Verifikasi dan masuk
+        </button>
       </form>
-      <form method="POST" action={actions.resendFirstLoginOtp}>
-        <button class="button secondary resend" type="submit">Kirim ulang kode</button>
-      </form>
-      <form method="POST" action={actions.logout}>
-        <button class="text-button" type="submit">Keluar dan gunakan akun lain</button>
-      </form>
+      <div class="otp-secondary">
+        <form method="POST" action={actions.resendLoginOtp}>
+          <button class="button secondary resend" type="submit" data-resend-button>
+            <i class="ph ph-arrow-clockwise" aria-hidden="true"></i>
+            <span data-resend-label>Kirim ulang kode</span>
+          </button>
+        </form>
+        <p class="resend-status" data-resend-status aria-live="polite"></p>
+      </div>
+      <LogoutDialog
+        dialogId="otp-logout-dialog"
+        triggerLabel="Keluar dan gunakan akun lain"
+        triggerClass="logout-inline-trigger"
+      />
     </section>
   </main>
+
+  <script>
+    const shell = document.querySelector<HTMLElement>('[data-reset-cooldown]');
+    const resendButton = document.querySelector<HTMLButtonElement>('[data-resend-button]');
+    const resendLabel = document.querySelector<HTMLElement>('[data-resend-label]');
+    const resendStatus = document.querySelector<HTMLElement>('[data-resend-status]');
+    const cooldownKey = 'kultivate-otp-resend-at';
+
+    if (shell?.dataset.resetCooldown === 'true') {
+      sessionStorage.setItem(cooldownKey, String(Date.now() + 60_000));
+    }
+
+    if (new URLSearchParams(window.location.search).get('sent') === '1') {
+      window.history.replaceState(null, '', '/verify-otp');
+    }
+
+    const updateCooldown = () => {
+      const availableAt = Number(sessionStorage.getItem(cooldownKey) ?? 0);
+      const seconds = Math.max(0, Math.ceil((availableAt - Date.now()) / 1000));
+      if (resendButton) resendButton.disabled = seconds > 0;
+      if (resendLabel) resendLabel.textContent = seconds > 0 ? 'Kirim ulang (' + seconds + 'd)' : 'Kirim ulang kode';
+      if (resendStatus) resendStatus.textContent = seconds > 0 ? 'Kode baru tersedia dalam ' + seconds + ' detik.' : 'Anda dapat meminta kode baru.';
+      return seconds;
+    };
+
+    updateCooldown();
+    const cooldownTimer = window.setInterval(() => {
+      if (updateCooldown() === 0) window.clearInterval(cooldownTimer);
+    }, 1000);
+    window.addEventListener('pagehide', () => window.clearInterval(cooldownTimer), { once: true });
+  </script>
 </BaseLayout>
 
 <style>
-  .auth-body{background:var(--surface-soft)}.otp-shell{min-height:100dvh;display:grid;place-items:center;padding:1.25rem}.otp-card{width:min(100%,460px);display:grid;gap:1.35rem;padding:clamp(1.4rem,4vw,2.4rem);background:white;border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg)}.eyebrow{color:var(--primary);font-size:.75rem;font-weight:750}.otp-card h1{margin-top:.35rem;font-size:1.8rem}.otp-card p{margin-top:.55rem;color:var(--muted)}.otp-form{display:grid;gap:1rem}.otp-input{font-size:1.45rem;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}.resend{width:100%}.text-button{width:100%;border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:.78rem}
+  .auth-body{background:var(--surface)}
+  .otp-shell{min-height:100dvh;display:grid;place-items:center;padding:1.25rem}
+  .otp-card{width:min(100%,470px);display:grid;gap:1.15rem;padding:clamp(1.35rem,4vw,2.25rem);background:white;border:1px solid var(--line);border-radius:var(--radius-card)}
+  .otp-card__brand{padding-bottom:.35rem;border-bottom:1px solid var(--line)}
+  .otp-heading{display:flex;align-items:center;gap:.85rem}
+  .otp-icon{width:46px;height:46px;display:grid;place-items:center;flex:0 0 auto;border-radius:50%;background:var(--primary-soft);color:var(--primary);font-size:1.35rem}
+  .eyebrow{color:var(--primary);font-size:.75rem;font-weight:750}
+  .otp-card h1{margin-top:.2rem;font-size:1.55rem}
+  .otp-description{color:var(--muted);font-size:.88rem}
+  .otp-description strong{color:var(--ink);overflow-wrap:anywhere}
+  .otp-form{display:grid;gap:.75rem}
+  .otp-input{font-size:1.45rem;letter-spacing:.35em;text-align:center;font-variant-numeric:tabular-nums}
+  .otp-form>.button,.resend{width:100%}
+  .otp-secondary{display:grid;gap:.35rem}
+  .resend-status{min-height:1.2rem;color:var(--muted);font-size:.72rem;text-align:center}
+  .logout-inline-trigger{width:100%;min-height:40px;display:inline-flex;align-items:center;justify-content:center;gap:.45rem;border:0;background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:.78rem;transition:color 160ms var(--ease-out),transform 120ms var(--ease-out)}
+  .logout-inline-trigger:active{transform:scale(.98)}
+  @media(hover:hover) and (pointer:fine){.logout-inline-trigger:hover{color:var(--danger)}}
 </style>
